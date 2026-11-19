@@ -67,12 +67,20 @@ export function CheckinClient({
   const [pos, setPos] = useState<Pos | null>(null);
   const [msg, setMsg] = useState<{ tone: "ok" | "err" | "info"; text: string } | null>(null);
   const [supported, setSupported] = useState<boolean | null>(null);
+  const [geoError, setGeoError] = useState<string | null>(null);
+
+  function locate() {
+    setGeoError(null);
+    getPosition()
+      .then(setPos)
+      .catch((e: Error) => setGeoError(e.message));
+  }
 
   useEffect(() => {
     setNow(new Date());
     const t = setInterval(() => setNow(new Date()), 1000);
     (async () => setSupported(browserSupportsWebAuthn() && (await platformAuthenticatorIsAvailable())))();
-    getPosition().then(setPos).catch(() => {});
+    locate();
     return () => clearInterval(t);
   }, []);
 
@@ -134,7 +142,14 @@ export function CheckinClient({
           {now?.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Asia/Bangkok" }) ?? "--:--:--"}
         </div>
         <div className="mt-3 text-[15px]">
-          {!pos ? (
+          {!pos && geoError ? (
+            <span className="text-amber-800">
+              📍 {geoError}{" "}
+              <button type="button" onClick={locate} className="ml-1 rounded-full border border-amber-300 px-3 py-0.5 text-sm">
+                ลองใหม่
+              </button>
+            </span>
+          ) : !pos ? (
             <span className="text-stone-500">📍 กำลังหาตำแหน่ง…</span>
           ) : nearest ? (
             <span className={cn("inline-block rounded-full px-3 py-1", inside ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800")}>
