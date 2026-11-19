@@ -2,20 +2,21 @@ import { and, asc, desc, eq, gte, lt, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { attendanceLogs, branches, employees, users } from "@/db/schema";
 import { SubmitButton } from "@/components/submit-button";
-import { DateNav, FilterBar, FilterSelect } from "@/components/filter-bar";
+import { DateRangeNav, FilterBar, FilterSelect } from "@/components/filter-bar";
 import { Badge, Card, Field, Flash, Input, Select, Table, btn } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
-import { addDays, atBkk, bkkDateStr, bkkTimeStr, fmtDate, isoWeekday, WEEKDAY_TH } from "@/lib/time";
+import { parseRange } from "@/lib/range";
+import { addDays, atBkk, bkkTimeStr, fmtDate } from "@/lib/time";
 import { fullName } from "@/lib/util";
 import { addManualPunch, deletePunch } from "../actions";
 
 export const metadata = { title: "บันทึกการสแกน" };
 
-export default async function LogsPage({ searchParams }: { searchParams: Promise<{ date?: string; employee?: string; ok?: string; error?: string }> }) {
+export default async function LogsPage({ searchParams }: { searchParams: Promise<{ date?: string; from?: string; to?: string; employee?: string; ok?: string; error?: string }> }) {
   await requireRole("admin", "hr");
   const sp = await searchParams;
-  const today = bkkDateStr();
-  const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : today;
+  const r = parseRange(sp, 62);
+  const date = r.to; // ค่าเริ่มต้นของฟอร์ม "HR บันทึกเวลาแทน"
   const [rows, emps] = await Promise.all([
     db
       .select({ l: attendanceLogs, e: employees, branch: branches.name, by: users.username })
@@ -25,8 +26,8 @@ export default async function LogsPage({ searchParams }: { searchParams: Promise
       .leftJoin(users, eq(attendanceLogs.createdBy, users.id))
       .where(
         and(
-          gte(attendanceLogs.punchedAt, atBkk(date)),
-          lt(attendanceLogs.punchedAt, atBkk(addDays(date, 1))),
+          gte(attendanceLogs.punchedAt, atBkk(r.from)),
+          lt(attendanceLogs.punchedAt, atBkk(addDays(r.to, 1))),
           sp.employee ? eq(attendanceLogs.employeeId, Number(sp.employee)) : undefined,
         ),
       )
@@ -34,20 +35,22 @@ export default async function LogsPage({ searchParams }: { searchParams: Promise
     db.select().from(employees).where(ne(employees.status, "resigned")).orderBy(asc(employees.code)),
   ]);
   const empOptions = emps.map((e) => ({ value: e.id, label: `${e.code} ${fullName(e)}` }));
-  const back = `/attendance/logs?date=${date}`;
+  const back = r.single ? `/attendance/logs?date=${r.from}` : `/attendance/logs?from=${r.from}&to=${r.to}`;
 
   return (
     <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
       <div>
         <Flash ok={sp.ok} error={sp.error} />
         <FilterBar>
-          <DateNav
-            date={date}
-            today={today}
-            prev={addDays(date, -1)}
-            next={addDays(date, 1)}
-            label={`${WEEKDAY_TH[isoWeekday(date)]} ${fmtDate(date)}`}
-            sublabel={date === today ? "วันนี้" : undefined}
+          <DateRangeNav
+            from={r.from}
+            to={r.to}
+            today={r.today}
+            prev={r.prev}
+            next={r.next}
+            label={r.label}
+            maxDays={62}
+            sublabel={r.single ? (r.from === r.today ? "วันนี้" : undefined) : `${r.days} วัน`}
           />
           <FilterSelect param="employee" value={sp.employee ?? ""} placeholder="พนักงานทุกคน" options={empOptions} className="min-w-52 flex-1 sm:flex-none" />
           <span className="ml-auto hidden px-3 text-sm text-stone-500 md:inline">{rows.length} รายการ</span>
@@ -55,7 +58,10 @@ export default async function LogsPage({ searchParams }: { searchParams: Promise
         <Table head={["เวลา", "พนักงาน", "ประเภท", "วิธี", "สาขา / ระยะ", "GPS", "หมายเหตุ", ""]} empty={!rows.length}>
           {rows.map(({ l, e, branch, by }) => (
             <tr key={l.id}>
-              <td className="tabular-nums">{bkkTimeStr(l.punchedAt)}</td>
+              <td className="whitespace-nowrap tabular-nums">
+                {!r.single && <span className="mr-1.5 text-xs text-stone-500">{fmtDate(l.punchedAt)}</span>}
+                {bkkTimeStr(l.punchedAt)}
+              </td>
               <td>
                 {fullName(e)} <span className="text-xs text-stone-400">{e.code}</span>
               </td>
