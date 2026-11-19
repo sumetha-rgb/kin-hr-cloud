@@ -3,7 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { employees } from "@/db/schema";
-import { DesktopOnly, MobileCard, MobileList, Select, Stat, Table, btn } from "@/components/ui";
+import { FilterBar, FilterSelect, StepNav } from "@/components/filter-bar";
+import { DesktopOnly, MobileCard, MobileList, Stat, Table } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { loadAttendance } from "@/lib/attendance-data";
 import { canSeeEmployee, visibleEmployeeIds } from "@/lib/scope";
@@ -45,22 +46,18 @@ export default async function MyAttendance({ searchParams }: { searchParams: Pro
 
   return (
     <>
-      <form className="mb-4 flex flex-wrap items-center gap-2">
-        <Link href={q({ month: shiftMonth(ym, -1) })} className={btn.secondary}>
-          ‹
-        </Link>
-        <span className="min-w-32 text-center font-medium">{fmtMonth(y, m)}</span>
-        <Link href={q({ month: shiftMonth(ym, 1) })} className={btn.secondary}>
-          ›
-        </Link>
+      <FilterBar>
+        <StepNav label={fmtMonth(y, m)} prev={q({ month: shiftMonth(ym, -1) })} next={q({ month: shiftMonth(ym, 1) })} />
         {pickable.length > 0 && (
-          <>
-            <input type="hidden" name="month" value={ym} />
-            <Select name="employee" defaultValue={String(empId)} options={pickable.map((e) => ({ value: e.id, label: `${e.code} ${fullName(e)}` }))} className="w-auto" />
-            <button className={btn.secondary}>แสดง</button>
-          </>
+          <FilterSelect
+            param="employee"
+            value={String(empId)}
+            placeholder="ตัวฉันเอง"
+            options={pickable.map((e) => ({ value: e.id, label: `${e.code} ${fullName(e)}` }))}
+            className="min-w-56 flex-1 sm:flex-none"
+          />
         )}
-      </form>
+      </FilterBar>
 
       {!row ? (
         <p className="text-stone-500">ไม่มีข้อมูลการจ้างงานในเดือนนี้</p>

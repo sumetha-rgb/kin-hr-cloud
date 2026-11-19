@@ -2,11 +2,12 @@ import { asc } from "drizzle-orm";
 import Link from "next/link";
 import { db } from "@/db";
 import { branches } from "@/db/schema";
-import { DesktopOnly, Input, MobileCard, MobileList, Select, Stat, Table, btn } from "@/components/ui";
+import { DateNav, FilterBar, FilterSelect } from "@/components/filter-bar";
+import { DesktopOnly, MobileCard, MobileList, Stat, Table } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
 import { loadAttendance } from "@/lib/attendance-data";
 import { visibleEmployeeIds } from "@/lib/scope";
-import { addDays, bkkDateStr, bkkTimeStr, fmtDate } from "@/lib/time";
+import { addDays, bkkDateStr, bkkTimeStr, fmtDate, isoWeekday, WEEKDAY_TH } from "@/lib/time";
 import { fullName } from "@/lib/util";
 import { DayStatusBadge } from "../status-badge";
 
@@ -15,7 +16,8 @@ export const metadata = { title: "สรุปการลงเวลารา�
 export default async function BoardPage({ searchParams }: { searchParams: Promise<{ date?: string; branch?: string }> }) {
   const u = await requireRole("admin", "hr", "manager");
   const sp = await searchParams;
-  const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : bkkDateStr();
+  const today = bkkDateStr();
+  const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : today;
   const [ids, br] = await Promise.all([visibleEmployeeIds(u), db.select().from(branches).orderBy(asc(branches.code))]);
   let rows = await loadAttendance({ start: date, end: date, employeeIds: ids });
   if (sp.branch) rows = rows.filter((r) => r.employee.branchId === Number(sp.branch));
@@ -25,18 +27,18 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
 
   return (
     <>
-      <form className="mb-4 flex flex-wrap items-end gap-2">
-        <Link href={`?date=${addDays(date, -1)}${sp.branch ? `&branch=${sp.branch}` : ""}`} className={btn.secondary}>
-          ‹
-        </Link>
-        <Input type="date" name="date" defaultValue={date} className="w-auto" />
-        <Link href={`?date=${addDays(date, 1)}${sp.branch ? `&branch=${sp.branch}` : ""}`} className={btn.secondary}>
-          ›
-        </Link>
-        <Select name="branch" placeholder="ทุกสาขา" defaultValue={sp.branch ?? ""} options={br.map((b) => ({ value: b.id, label: b.name }))} className="w-auto" />
-        <button className={btn.secondary}>แสดง</button>
-        <span className="ml-auto text-sm text-stone-500">{fmtDate(date)}</span>
-      </form>
+      <FilterBar>
+        <DateNav
+          date={date}
+          today={today}
+          prev={addDays(date, -1)}
+          next={addDays(date, 1)}
+          label={`${WEEKDAY_TH[isoWeekday(date)]} ${fmtDate(date)}`}
+          sublabel={date === today ? "วันนี้" : undefined}
+        />
+        <FilterSelect param="branch" value={sp.branch ?? ""} placeholder="ทุกสาขา" options={br.map((b) => ({ value: b.id, label: b.name }))} className="min-w-44 flex-1 sm:flex-none" />
+        <span className="ml-auto hidden px-3 text-sm text-stone-500 md:inline">{rows.length} คน</span>
+      </FilterBar>
 
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
         <Stat label="มาทำงาน" value={count(["present", "late", "incomplete"])} tone="good" />

@@ -1,9 +1,9 @@
 import { and, asc, gte, lte } from "drizzle-orm";
-import Link from "next/link";
 import { db } from "@/db";
 import { holidays } from "@/db/schema";
 import { SubmitButton } from "@/components/submit-button";
-import { Card, Field, Flash, Input, Table, btn } from "@/components/ui";
+import { FilterBar, StepNav } from "@/components/filter-bar";
+import { Card, Field, Flash, Input, Table } from "@/components/ui";
 import { bkkDateStr, fmtDate, isoWeekday, WEEKDAY_TH } from "@/lib/time";
 import { deleteHoliday, saveHoliday } from "../actions";
 
@@ -22,16 +22,12 @@ export default async function HolidaysPage({ searchParams }: { searchParams: Pro
     <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
       <div>
         <Flash ok={sp.ok} error={sp.error} />
-        <div className="mb-3 flex items-center gap-2">
-          <Link href={`?year=${year - 1}`} className={btn.secondary}>
-            ‹
-          </Link>
-          <span className="font-medium">ปี {year + 543}</span>
-          <Link href={`?year=${year + 1}`} className={btn.secondary}>
-            ›
-          </Link>
-          <span className="text-sm text-stone-500">({rows.length} วัน — กฎหมายกำหนดไม่น้อยกว่า 13 วัน/ปี รวมวันแรงงาน)</span>
-        </div>
+        <FilterBar>
+          <StepNav label={`ปี ${year + 543}`} prev={`?year=${year - 1}`} next={`?year=${year + 1}`} />
+          <span className="px-2 text-sm text-stone-500">
+            {rows.length} วัน · กฎหมายกำหนดไม่น้อยกว่า 13 วัน/ปี รวมวันแรงงาน
+          </span>
+        </FilterBar>
         <Table head={["วันที่", "วัน", "ชื่อวันหยุด", ""]} empty={!rows.length}>
           {rows.map((h) => (
             <tr key={h.id}>

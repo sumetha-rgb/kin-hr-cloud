@@ -105,17 +105,23 @@ export function Field({ label, children, hint, className }: { label: string; chi
   );
 }
 
+/** รวม class ของช่องกรอก — ถ้าส่งความกว้างมาเอง (w-auto, w-40 …) ให้ตัด w-full ทิ้ง ไม่งั้น w-full ชนะใน CSS */
+export function fieldClass(extra?: string) {
+  const base = extra && /(^|\s)(w-|min-w-|flex-1)/.test(extra) ? inputCls.replace("w-full ", "") : inputCls;
+  return cn(base, extra);
+}
+
 export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={cn(inputCls, props.className)} />;
+  return <input {...props} className={fieldClass(props.className)} />;
 }
 
 export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea rows={3} {...props} className={cn(inputCls, props.className)} />;
+  return <textarea rows={3} {...props} className={fieldClass(props.className)} />;
 }
 
 export function Select({ options, placeholder, ...props }: React.SelectHTMLAttributes<HTMLSelectElement> & { options: Array<{ value: string | number; label: string }>; placeholder?: string }) {
   return (
-    <select {...props} className={cn(inputCls, props.className)}>
+    <select {...props} className={fieldClass(props.className)}>
       {placeholder !== undefined && <option value="">{placeholder}</option>}
       {options.map((o) => (
         <option key={o.value} value={o.value}>

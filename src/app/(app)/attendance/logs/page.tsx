@@ -1,11 +1,11 @@
 import { and, asc, desc, eq, gte, lt, ne } from "drizzle-orm";
-import Link from "next/link";
 import { db } from "@/db";
 import { attendanceLogs, branches, employees, users } from "@/db/schema";
 import { SubmitButton } from "@/components/submit-button";
+import { DateNav, FilterBar, FilterSelect } from "@/components/filter-bar";
 import { Badge, Card, Field, Flash, Input, Select, Table, btn } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
-import { addDays, atBkk, bkkDateStr, bkkTimeStr } from "@/lib/time";
+import { addDays, atBkk, bkkDateStr, bkkTimeStr, fmtDate, isoWeekday, WEEKDAY_TH } from "@/lib/time";
 import { fullName } from "@/lib/util";
 import { addManualPunch, deletePunch } from "../actions";
 
@@ -14,7 +14,8 @@ export const metadata = { title: "บันทึกการสแกน" };
 export default async function LogsPage({ searchParams }: { searchParams: Promise<{ date?: string; employee?: string; ok?: string; error?: string }> }) {
   await requireRole("admin", "hr");
   const sp = await searchParams;
-  const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : bkkDateStr();
+  const today = bkkDateStr();
+  const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : today;
   const [rows, emps] = await Promise.all([
     db
       .select({ l: attendanceLogs, e: employees, branch: branches.name, by: users.username })
@@ -39,17 +40,18 @@ export default async function LogsPage({ searchParams }: { searchParams: Promise
     <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
       <div>
         <Flash ok={sp.ok} error={sp.error} />
-        <form className="mb-4 flex flex-wrap gap-2">
-          <Link href={`?date=${addDays(date, -1)}`} className={btn.secondary}>
-            ‹
-          </Link>
-          <Input type="date" name="date" defaultValue={date} className="w-auto" />
-          <Link href={`?date=${addDays(date, 1)}`} className={btn.secondary}>
-            ›
-          </Link>
-          <Select name="employee" placeholder="ทุกคน" defaultValue={sp.employee ?? ""} options={empOptions} className="w-auto" />
-          <button className={btn.secondary}>แสดง</button>
-        </form>
+        <FilterBar>
+          <DateNav
+            date={date}
+            today={today}
+            prev={addDays(date, -1)}
+            next={addDays(date, 1)}
+            label={`${WEEKDAY_TH[isoWeekday(date)]} ${fmtDate(date)}`}
+            sublabel={date === today ? "วันนี้" : undefined}
+          />
+          <FilterSelect param="employee" value={sp.employee ?? ""} placeholder="พนักงานทุกคน" options={empOptions} className="min-w-52 flex-1 sm:flex-none" />
+          <span className="ml-auto hidden px-3 text-sm text-stone-500 md:inline">{rows.length} รายการ</span>
+        </FilterBar>
         <Table head={["เวลา", "พนักงาน", "ประเภท", "วิธี", "สาขา / ระยะ", "GPS", "หมายเหตุ", ""]} empty={!rows.length}>
           {rows.map(({ l, e, branch, by }) => (
             <tr key={l.id}>
