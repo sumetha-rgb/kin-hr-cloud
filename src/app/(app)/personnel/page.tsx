@@ -1,7 +1,8 @@
 import { and, asc, eq, ilike, or, type SQL } from "drizzle-orm";
 import Link from "next/link";
 import { db } from "@/db";
-import { branches, departments, employees, positions, users } from "@/db/schema";
+import { branches, departments, employeePhotos, employees, positions, users } from "@/db/schema";
+import { Avatar } from "@/components/avatar";
 import { Badge, DesktopOnly, Flash, Input, LinkButton, MobileCard, MobileList, PageHeader, Select, Table, btn } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
 import { fmtDate } from "@/lib/time";
@@ -26,8 +27,9 @@ export default async function PersonnelPage({
 
   const [rows, br] = await Promise.all([
     db
-      .select({ e: employees, branch: branches.name, dept: departments.name, pos: positions.name, role: users.role })
+      .select({ e: employees, branch: branches.name, dept: departments.name, pos: positions.name, role: users.role, photoAt: employeePhotos.updatedAt })
       .from(employees)
+      .leftJoin(employeePhotos, eq(employeePhotos.employeeId, employees.id))
       .leftJoin(branches, eq(employees.branchId, branches.id))
       .leftJoin(departments, eq(employees.departmentId, departments.id))
       .leftJoin(positions, eq(employees.positionId, positions.id))
@@ -49,10 +51,11 @@ export default async function PersonnelPage({
         <button className={btn.secondary}>ค้นหา</button>
       </form>
       <MobileList empty={!rows.length}>
-        {rows.map(({ e, branch, pos }) => (
+        {rows.map(({ e, branch, pos, photoAt }) => (
           <MobileCard key={e.id} href={`/personnel/${e.id}`}>
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <Avatar name={fullName(e)} employeeId={e.id} version={photoAt?.getTime()} size={48} />
+              <div className="min-w-0 flex-1">
                 <div className="truncate text-base font-semibold text-brand-900">
                   {fullName(e)}
                   {e.nickname && <span className="font-normal text-stone-500"> ({e.nickname})</span>}
@@ -69,7 +72,7 @@ export default async function PersonnelPage({
       </MobileList>
       <DesktopOnly>
         <Table head={["รหัส", "ชื่อ-สกุล", "สาขา", "แผนก / ตำแหน่ง", "เริ่มงาน", "สถานะ", "บัญชีผู้ใช้"]} empty={!rows.length}>
-          {rows.map(({ e, branch, dept, pos, role }) => (
+          {rows.map(({ e, branch, dept, pos, role, photoAt }) => (
             <tr key={e.id} className="hover:bg-stone-50">
               <td>
                 <Link href={`/personnel/${e.id}`} className="font-medium text-brand-600">
@@ -77,9 +80,12 @@ export default async function PersonnelPage({
                 </Link>
               </td>
               <td>
-                <Link href={`/personnel/${e.id}`}>
-                  {fullName(e)}
-                  {e.nickname && <span className="text-stone-400"> ({e.nickname})</span>}
+                <Link href={`/personnel/${e.id}`} className="flex items-center gap-2.5">
+                  <Avatar name={fullName(e)} employeeId={e.id} version={photoAt?.getTime()} size={32} />
+                  <span>
+                    {fullName(e)}
+                    {e.nickname && <span className="text-stone-400"> ({e.nickname})</span>}
+                  </span>
                 </Link>
               </td>
               <td>{branch ?? "-"}</td>

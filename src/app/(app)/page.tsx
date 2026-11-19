@@ -1,7 +1,8 @@
 import { and, asc, count, countDistinct, desc, eq, gte, lt, ne } from "drizzle-orm";
 import Link from "next/link";
 import { db } from "@/db";
-import { attendanceLogs, branches, employees, leaveTypes, payrollItems, payrollRuns, requests } from "@/db/schema";
+import { attendanceLogs, branches, employeePhotos, employees, leaveTypes, payrollItems, payrollRuns, requests } from "@/db/schema";
+import { Avatar } from "@/components/avatar";
 import { BarChart, type BarDatum } from "@/components/bar-chart";
 import { Icon } from "@/components/sidebar";
 import { Badge, Card, DesktopOnly, Flash, MobileList, Stat, Table } from "@/components/ui";
@@ -50,9 +51,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       : Promise.resolve([]),
     approver
       ? db
-          .select({ r: requests, e: employees, leaveName: leaveTypes.name })
+          .select({ r: requests, e: employees, leaveName: leaveTypes.name, photoAt: employeePhotos.updatedAt })
           .from(requests)
           .innerJoin(employees, eq(requests.employeeId, employees.id))
+          .leftJoin(employeePhotos, eq(employeePhotos.employeeId, employees.id))
           .leftJoin(leaveTypes, eq(requests.leaveTypeId, leaveTypes.id))
           .where(and(eq(requests.status, "pending"), approvableWhere(user)))
           .orderBy(asc(requests.createdAt))
@@ -65,44 +67,55 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   return (
     <>
       <Flash ok={sp.ok} error={sp.error} />
-      <div className="mb-5">
-        <p className="text-sm text-brand-700">
-          {WEEKDAY_TH[isoWeekday(today)]} {fmtDate(today)}
-        </p>
-        <h1 className="text-[22px] font-semibold text-brand-900 sm:text-2xl">
-          {greeting()}, {user.displayName}
-        </h1>
-      </div>
-
-      {user.employeeId && (
-        <div className="mb-5 grid gap-3 md:grid-cols-[1.3fr_1fr_1fr]">
-          <Link
-            href="/checkin"
-            className="flex items-center gap-4 rounded-3xl border border-brand-300 bg-gradient-to-br from-brand-50 to-brand-100 p-5 active:scale-[.99]"
-          >
-            <span className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-700 text-white shadow">
-              <Icon name="finger" className="size-9" />
-            </span>
-            <span className="min-w-0">
-              <span className="block text-lg font-semibold text-brand-900">{nextAction}</span>
-              <span className="block text-sm text-brand-700">
-                เข้า {lastIn ? `${bkkTimeStr(lastIn.punchedAt)} น.` : "—"} · ออก {lastOut ? `${bkkTimeStr(lastOut.punchedAt)} น.` : "—"}
-              </span>
-            </span>
-            <span className="ml-auto text-2xl text-brand-500">›</span>
+      {/* ส่วนต้อนรับ */}
+      <section className="relative mb-6 overflow-hidden rounded-[28px] bg-[radial-gradient(circle_at_85%_0%,rgba(220,196,160,.45),transparent_45%),linear-gradient(125deg,#5e4830_0%,#3a2817_50%,#2c1e0f_100%)] p-5 text-white shadow-lift sm:p-7">
+        <div className="pointer-events-none absolute -right-10 -bottom-16 size-56 rounded-full border-[28px] border-white/[.04]" />
+        <div className="relative flex items-center gap-4">
+          <Link href="/account" className="shrink-0" aria-label="โปรไฟล์ของฉัน">
+            <Avatar name={user.displayName} employeeId={user.employeeId} version={user.photoVersion} size={64} className="ring-3 ring-brand-300/60" />
           </Link>
-          <Link href="/requests" className="rounded-3xl border border-brand-200 bg-white p-5 active:bg-brand-50">
-            <span className="block text-sm text-stone-600">คำขอของฉันที่รออนุมัติ</span>
-            <span className="mt-1 block text-[26px] font-semibold text-brand-900">{pendingMine.n} รายการ</span>
-            <span className="text-sm text-brand-700">ยื่นลา / OT / แก้เวลา ›</span>
-          </Link>
-          <Link href="/payroll/my" className="rounded-3xl border border-brand-200 bg-white p-5 active:bg-brand-50">
-            <span className="block text-sm text-stone-600">สลิปล่าสุด {lastSlip ? fmtMonth(lastSlip.run.year, lastSlip.run.month) : ""}</span>
-            <span className="mt-1 block text-[26px] font-semibold text-brand-900 tabular-nums">{lastSlip ? `${fmtMoney(lastSlip.i.net)} ฿` : "—"}</span>
-            <span className="text-sm text-brand-700">ดูสลิปเงินเดือน ›</span>
-          </Link>
+          <div className="min-w-0">
+            <p className="text-sm text-brand-200/90">
+              {WEEKDAY_TH[isoWeekday(today)]} {fmtDate(today)}
+            </p>
+            <h1 className="truncate text-[22px] font-semibold tracking-tight sm:text-[26px]">
+              {greeting()}, {user.nickname || user.displayName.split(" ")[0]}
+            </h1>
+            {!user.photoVersion && user.employeeId && (
+              <Link href="/account" className="mt-1 inline-block text-sm text-brand-200 underline-offset-4 hover:underline">
+                + เพิ่มรูปโปรไฟล์ของคุณ
+              </Link>
+            )}
+          </div>
         </div>
-      )}
+
+        {user.employeeId && (
+          <div className="relative mt-5 grid gap-3 sm:grid-cols-[1.4fr_1fr_1fr]">
+            <Link href="/checkin" className="flex items-center gap-4 rounded-3xl bg-white p-4 text-brand-900 shadow-lg shadow-black/20 transition active:scale-[.99] sm:p-5">
+              <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-700 text-white shadow">
+                <Icon name="finger" className="size-8" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-lg font-semibold">{nextAction}</span>
+                <span className="block text-sm text-brand-700">
+                  เข้า {lastIn ? `${bkkTimeStr(lastIn.punchedAt)} น.` : "—"} · ออก {lastOut ? `${bkkTimeStr(lastOut.punchedAt)} น.` : "—"}
+                </span>
+              </span>
+              <span className="ml-auto text-2xl text-brand-400">›</span>
+            </Link>
+            <Link href="/requests" className="rounded-3xl bg-white/[.08] p-4 ring-1 ring-white/15 backdrop-blur transition hover:bg-white/[.12] sm:p-5">
+              <span className="block text-sm text-brand-200/90">คำขอที่รออนุมัติ</span>
+              <span className="mt-0.5 block text-[26px] font-semibold tabular-nums">{pendingMine.n} รายการ</span>
+              <span className="text-sm text-brand-200">ยื่นลา / OT / แก้เวลา ›</span>
+            </Link>
+            <Link href="/payroll/my" className="rounded-3xl bg-white/[.08] p-4 ring-1 ring-white/15 backdrop-blur transition hover:bg-white/[.12] sm:p-5">
+              <span className="block text-sm text-brand-200/90">สลิปล่าสุด {lastSlip ? fmtMonth(lastSlip.run.year, lastSlip.run.month) : ""}</span>
+              <span className="mt-0.5 block text-[26px] font-semibold tabular-nums">{lastSlip ? `${fmtMoney(lastSlip.i.net)} ฿` : "—"}</span>
+              <span className="text-sm text-brand-200">ดูสลิปเงินเดือน ›</span>
+            </Link>
+          </div>
+        )}
+      </section>
 
       {approver && pendingForMe.length > 0 && (
         <Card
@@ -119,8 +132,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           className="mb-5"
         >
           <ul className="divide-y divide-brand-100">
-            {pendingForMe.slice(0, 4).map(({ r, e, leaveName }) => (
+            {pendingForMe.slice(0, 4).map(({ r, e, leaveName, photoAt }) => (
               <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 text-[15px] sm:text-sm">
+                <Avatar name={fullName(e)} employeeId={e.id} version={photoAt?.getTime()} size={32} />
                 <TypeBadge type={r.type} />
                 <span className="font-medium text-brand-900">{fullName(e)}</span>
                 <span className="text-stone-600">
@@ -152,9 +166,10 @@ async function HrOverview({ today, from, to }: { today: string; from: Date; to: 
       .groupBy(branches.id)
       .orderBy(desc(count(employees.id))),
     db
-      .select({ log: attendanceLogs, e: employees, branch: branches.name })
+      .select({ log: attendanceLogs, e: employees, branch: branches.name, photoAt: employeePhotos.updatedAt })
       .from(attendanceLogs)
       .innerJoin(employees, eq(attendanceLogs.employeeId, employees.id))
+      .leftJoin(employeePhotos, eq(employeePhotos.employeeId, employees.id))
       .leftJoin(branches, eq(attendanceLogs.branchId, branches.id))
       .where(and(gte(attendanceLogs.punchedAt, from), lt(attendanceLogs.punchedAt, to)))
       .orderBy(desc(attendanceLogs.punchedAt))
@@ -213,12 +228,14 @@ async function HrOverview({ today, from, to }: { today: string; from: Date; to: 
       >
         <MobileList empty={recent.length === 0}>
           <ul className="divide-y divide-brand-100">
-            {recent.map(({ log, e, branch }) => (
+            {recent.map(({ log, e, branch, photoAt }) => (
               <li key={log.id} className="flex items-center gap-3 px-4 py-3">
-                <span className="w-14 text-lg font-semibold text-brand-900 tabular-nums">{bkkTimeStr(log.punchedAt)}</span>
+                <Avatar name={fullName(e)} employeeId={e.id} version={photoAt?.getTime()} size={40} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium text-brand-900">{fullName(e)}</span>
-                  <span className="block truncate text-sm text-stone-500">{branch ?? log.note ?? "-"}</span>
+                  <span className="block truncate text-sm text-stone-500">
+                    {bkkTimeStr(log.punchedAt)} น. · {branch ?? log.note ?? "-"}
+                  </span>
                 </span>
                 <Badge tone={log.type === "in" ? "green" : "gold"}>{log.type === "in" ? "เข้า" : "ออก"}</Badge>
               </li>
@@ -228,11 +245,16 @@ async function HrOverview({ today, from, to }: { today: string; from: Date; to: 
         <DesktopOnly>
           <div className="p-4">
             <Table head={["เวลา", "พนักงาน", "ประเภท", "สาขา", "ระยะจากสาขา"]} empty={recent.length === 0}>
-              {recent.map(({ log, e, branch }) => (
+              {recent.map(({ log, e, branch, photoAt }) => (
                 <tr key={log.id}>
                   <td className="font-medium tabular-nums">{bkkTimeStr(log.punchedAt)}</td>
                   <td>
-                    {fullName(e)} <span className="text-xs text-stone-400">{e.code}</span>
+                    <span className="flex items-center gap-2.5">
+                      <Avatar name={fullName(e)} employeeId={e.id} version={photoAt?.getTime()} size={30} />
+                      <span>
+                        {fullName(e)} <span className="text-xs text-stone-400">{e.code}</span>
+                      </span>
+                    </span>
                   </td>
                   <td>
                     <Badge tone={log.type === "in" ? "green" : "gold"}>{log.type === "in" ? "เข้า" : "ออก"}</Badge>

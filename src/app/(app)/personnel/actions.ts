@@ -43,6 +43,11 @@ const employeeSchema = z.object({
   bankName: z.string().optional(),
   bankAccount: z.string().optional(),
   allowRemoteCheckin: zBool,
+  lineId: z.string().max(60).optional(),
+  address: z.string().max(500).optional(),
+  emergencyName: z.string().max(100).optional(),
+  emergencyPhone: z.string().max(30).optional(),
+  bio: z.string().max(300).optional(),
 });
 
 export async function saveEmployee(fd: FormData) {

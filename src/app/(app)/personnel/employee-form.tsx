@@ -2,7 +2,7 @@ import { asc, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { branches, departments, employees, positions, shifts, type Employee } from "@/db/schema";
 import { SubmitButton } from "@/components/submit-button";
-import { Card, Checkbox, Field, Input, Select } from "@/components/ui";
+import { Card, Checkbox, Field, Input, Select, Textarea } from "@/components/ui";
 import { bkkDateStr } from "@/lib/time";
 import { fullName, STATUS_LABEL } from "@/lib/util";
 import { saveEmployee } from "./actions";
@@ -47,6 +47,21 @@ export async function EmployeeForm({ employee: e, suggestedCode }: { employee?: 
           </Field>
           <Field label="อีเมล" className="sm:col-span-2">
             <Input name="email" type="email" defaultValue={e?.email ?? ""} />
+          </Field>
+          <Field label="LINE ID">
+            <Input name="lineId" autoCapitalize="none" defaultValue={e?.lineId ?? ""} />
+          </Field>
+          <Field label="ผู้ติดต่อฉุกเฉิน">
+            <Input name="emergencyName" placeholder="ชื่อ (ความสัมพันธ์)" defaultValue={e?.emergencyName ?? ""} />
+          </Field>
+          <Field label="เบอร์ผู้ติดต่อฉุกเฉิน">
+            <Input name="emergencyPhone" type="tel" defaultValue={e?.emergencyPhone ?? ""} />
+          </Field>
+          <Field label="ที่อยู่ปัจจุบัน" className="sm:col-span-2 lg:col-span-4">
+            <Textarea name="address" rows={2} defaultValue={e?.address ?? ""} />
+          </Field>
+          <Field label="แนะนำตัว" hint="แสดงบนโปรไฟล์ของพนักงาน" className="sm:col-span-2 lg:col-span-4">
+            <Textarea name="bio" rows={2} maxLength={300} defaultValue={e?.bio ?? ""} />
           </Field>
         </div>
       </Card>

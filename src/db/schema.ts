@@ -125,6 +125,12 @@ export const employees = pgTable(
     bankName: text("bank_name"),
     bankAccount: text("bank_account"),
     allowRemoteCheckin: boolean("allow_remote_checkin").notNull().default(false),
+    // โปรไฟล์ — พนักงานแก้เองได้ที่ /account (HR แก้ได้ที่ /personnel/[id])
+    lineId: text("line_id"),
+    address: text("address"),
+    emergencyName: text("emergency_name"),
+    emergencyPhone: text("emergency_phone"),
+    bio: text("bio"),
     createdAt: createdAt(),
   },
   (t) => [index("employees_branch_idx").on(t.branchId), index("employees_manager_idx").on(t.managerId)],
@@ -141,6 +147,16 @@ export const users = pgTable("users", {
   active: boolean("active").notNull().default(true),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   createdAt: createdAt(),
+});
+
+/** รูปโปรไฟล์ (JPEG ย่อแล้ว ~400px, base64) แยกตารางเพื่อไม่ให้ select พนักงานทั่วไปลากรูปมาด้วย */
+export const employeePhotos = pgTable("employee_photos", {
+  employeeId: integer("employee_id")
+    .primaryKey()
+    .references(() => employees.id, { onDelete: "cascade" }),
+  mime: text("mime").notNull().default("image/jpeg"),
+  data: text("data").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 /** Passkey/ลายนิ้วมือบนมือถือ — เก็บแค่ public key, ไม่มีข้อมูลลายนิ้วมือขึ้นเซิร์ฟเวอร์ */

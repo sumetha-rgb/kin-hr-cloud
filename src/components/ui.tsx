@@ -3,27 +3,54 @@ import { cn } from "@/lib/util";
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: React.ReactNode }) {
   return (
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
-        <h1 className="text-[22px] leading-tight font-semibold text-brand-900 sm:text-2xl">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-brand-700">{subtitle}</p>}
+        <h1 className="text-[24px] leading-tight font-semibold tracking-tight text-brand-900 sm:text-[28px]">{title}</h1>
+        {subtitle && <p className="mt-1 text-[15px] text-brand-700/90">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
   );
 }
 
-export function Card({ title, children, className, actions, padded = true }: { title?: React.ReactNode; children: React.ReactNode; className?: string; actions?: React.ReactNode; padded?: boolean }) {
+export function Card({
+  title,
+  subtitle,
+  children,
+  className,
+  actions,
+  padded = true,
+}: {
+  title?: React.ReactNode;
+  subtitle?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+  actions?: React.ReactNode;
+  padded?: boolean;
+}) {
   return (
-    <section className={cn("rounded-2xl border border-brand-200 bg-white shadow-[0_1px_2px_rgba(44,30,15,0.04)]", className)}>
+    <section className={cn("rounded-3xl border border-brand-200/80 bg-white shadow-card", className)}>
       {title && (
-        <div className="flex items-center justify-between gap-2 border-b border-brand-100 px-4 py-3">
-          <h2 className="font-semibold text-brand-800">{title}</h2>
+        <div className="flex items-center justify-between gap-2 px-5 pt-4 pb-1">
+          <div className="min-w-0">
+            <h2 className="font-semibold text-brand-900">{title}</h2>
+            {subtitle && <p className="text-xs text-stone-500">{subtitle}</p>}
+          </div>
           {actions}
         </div>
       )}
-      <div className={padded ? "p-4" : ""}>{children}</div>
+      <div className={padded ? "p-5" : "pb-2"}>{children}</div>
     </section>
+  );
+}
+
+/** แถวข้อมูลแบบ ป้าย : ค่า (ใช้ในหน้าโปรไฟล์/รายละเอียด) */
+export function InfoRow({ label, value }: { label: string; value?: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-b border-brand-100 py-2.5 last:border-0 sm:[&:nth-last-child(2)]:border-0">
+      <dt className="shrink-0 text-sm text-stone-500">{label}</dt>
+      <dd className="text-right text-[15px] font-medium text-brand-900 sm:text-sm">{value || "-"}</dd>
+    </div>
   );
 }
 
@@ -36,22 +63,22 @@ const statTone = {
 export function Stat({ label, value, hint, tone = "default", icon }: { label: string; value: React.ReactNode; hint?: string; tone?: keyof typeof statTone; icon?: React.ReactNode }) {
   const t = statTone[tone];
   return (
-    <div className="rounded-2xl border border-brand-200 bg-white p-4">
+    <div className="rounded-3xl border border-brand-200/80 bg-white p-4 shadow-card sm:p-5">
       <div className="flex items-center justify-between gap-2">
         <div className="text-sm text-stone-600">{label}</div>
-        {icon && <span className={cn("flex size-8 items-center justify-center rounded-lg", t.chip)}>{icon}</span>}
+        {icon && <span className={cn("flex size-9 items-center justify-center rounded-xl", t.chip)}>{icon}</span>}
       </div>
-      <div className={cn("mt-1 text-[26px] leading-tight font-semibold tabular-nums", t.text)}>{value}</div>
+      <div className={cn("mt-2 text-[28px] leading-tight font-semibold tracking-tight tabular-nums", t.text)}>{value}</div>
       {hint && <div className="mt-0.5 text-xs text-stone-500">{hint}</div>}
     </div>
   );
 }
 
 const btnBase =
-  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-[15px] font-medium transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10 sm:text-sm";
+  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full px-5 py-2 text-[15px] font-medium transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand-300 sm:min-h-10 sm:text-sm";
 export const btn = {
-  primary: cn(btnBase, "bg-brand-600 text-white shadow-sm hover:bg-brand-700"),
-  secondary: cn(btnBase, "border border-brand-200 bg-white text-brand-800 hover:bg-brand-50"),
+  primary: cn(btnBase, "bg-gradient-to-b from-brand-500 to-brand-700 text-white shadow-sm shadow-brand-700/30 hover:from-brand-600 hover:to-brand-800"),
+  secondary: cn(btnBase, "border border-brand-200 bg-white text-brand-800 shadow-sm hover:border-brand-300 hover:bg-brand-50"),
   danger: cn(btnBase, "bg-rose-600 text-white hover:bg-rose-700"),
   ghost: cn(btnBase, "min-h-9 px-3 text-brand-700 hover:bg-brand-50 sm:min-h-9"),
   success: cn(btnBase, "bg-emerald-600 text-white hover:bg-emerald-700"),
@@ -66,7 +93,7 @@ export function LinkButton({ href, children, variant = "primary" }: { href: stri
 }
 
 export const inputCls =
-  "w-full min-h-11 rounded-xl border border-brand-200 bg-white px-3 py-2 text-base text-brand-900 outline-none placeholder:text-stone-400 focus:border-brand-400 focus:ring-3 focus:ring-brand-100 disabled:bg-brand-50 sm:min-h-10 sm:text-sm";
+  "w-full min-h-11 rounded-xl border border-brand-200 bg-brand-50/40 px-3.5 py-2 text-base text-brand-900 outline-none transition placeholder:text-stone-400 hover:border-brand-300 focus:border-brand-400 focus:bg-white focus:ring-4 focus:ring-brand-100 disabled:bg-brand-50 sm:min-h-10 sm:text-sm";
 
 export function Field({ label, children, hint, className }: { label: string; children: React.ReactNode; hint?: string; className?: string }) {
   return (
@@ -110,9 +137,9 @@ export function Checkbox({ label, ...props }: React.InputHTMLAttributes<HTMLInpu
 
 export function Table({ head, children, empty }: { head: React.ReactNode[]; children: React.ReactNode; empty?: boolean }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-brand-200 bg-white">
+    <div className="overflow-x-auto rounded-3xl border border-brand-200/80 bg-white shadow-card">
       <table className="w-full min-w-max text-sm">
-        <thead className="bg-brand-50 text-left text-brand-700">
+        <thead className="bg-brand-50/80 text-left text-xs tracking-wide text-brand-700 uppercase">
           <tr>
             {head.map((h, i) => (
               <th key={i} className="px-3 py-2.5 font-medium whitespace-nowrap">
@@ -121,7 +148,7 @@ export function Table({ head, children, empty }: { head: React.ReactNode[]; chil
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-brand-100 [&_td]:px-3 [&_td]:py-2.5">
+        <tbody className="divide-y divide-brand-100 [&_td]:px-3 [&_td]:py-3 [&_tr]:transition-colors [&_tr:hover]:bg-brand-50/50">
           {children}
           {empty && (
             <tr>
@@ -140,13 +167,13 @@ export function Table({ head, children, empty }: { head: React.ReactNode[]; chil
 export function MobileList({ children, empty }: { children: React.ReactNode; empty?: boolean }) {
   return (
     <div className="space-y-2.5 md:hidden">
-      {empty ? <div className="rounded-2xl border border-dashed border-brand-200 bg-white p-8 text-center text-stone-400">ยังไม่มีข้อมูล</div> : children}
+      {empty ? <div className="rounded-3xl border border-dashed border-brand-200 bg-white p-8 text-center text-stone-400">ยังไม่มีข้อมูล</div> : children}
     </div>
   );
 }
 
 export function MobileCard({ href, children, className }: { href?: string; children: React.ReactNode; className?: string }) {
-  const cls = cn("block rounded-2xl border border-brand-200 bg-white p-4 active:bg-brand-50", className);
+  const cls = cn("block rounded-3xl border border-brand-200/80 bg-white p-4 shadow-card transition active:scale-[.99] active:bg-brand-50", className);
   return href ? (
     <Link href={href} className={cls}>
       {children}
@@ -178,7 +205,7 @@ export function Flash({ ok, error }: { ok?: string; error?: string }) {
     <div
       role={error ? "alert" : "status"}
       className={cn(
-        "mb-4 rounded-xl border px-4 py-3 text-[15px] sm:text-sm",
+        "animate-in mb-4 rounded-2xl border px-4 py-3 text-[15px] shadow-card sm:text-sm",
         error ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-200 bg-emerald-50 text-emerald-800",
       )}
     >
@@ -190,14 +217,14 @@ export function Flash({ ok, error }: { ok?: string; error?: string }) {
 
 export function Tabs({ items, active }: { items: Array<{ href: string; label: string; key: string }>; active: string }) {
   return (
-    <nav className="-mx-4 mb-5 flex gap-1 overflow-x-auto border-b border-brand-200 px-4 sm:mx-0 sm:px-0">
+    <nav className="-mx-4 mb-6 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
       {items.map((t) => (
         <Link
           key={t.key}
           href={t.href}
           className={cn(
-            "-mb-px border-b-2 px-3 py-2.5 text-[15px] whitespace-nowrap sm:text-sm",
-            t.key === active ? "border-brand-600 font-medium text-brand-800" : "border-transparent text-stone-500 hover:text-brand-800",
+            "rounded-full px-4 py-2 text-[15px] whitespace-nowrap transition sm:text-sm",
+            t.key === active ? "bg-brand-900 font-medium text-white shadow-sm" : "border border-brand-200 bg-white text-stone-600 hover:border-brand-300 hover:text-brand-900",
           )}
         >
           {t.label}

@@ -7,7 +7,7 @@ import { cn } from "@/lib/util";
 export function RouteTabs({ items }: { items: Array<{ href: string; label: string }> }) {
   const path = usePathname();
   return (
-    <nav className="-mx-4 mb-5 flex gap-1 overflow-x-auto border-b border-brand-200 px-4 sm:mx-0 sm:px-0">
+    <nav className="-mx-4 mb-6 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
       {items.map((t) => {
         const active = path === t.href || path.startsWith(t.href + "/");
         return (
@@ -15,8 +15,8 @@ export function RouteTabs({ items }: { items: Array<{ href: string; label: strin
             key={t.href}
             href={t.href}
             className={cn(
-              "-mb-px border-b-2 px-3 py-2.5 text-[15px] whitespace-nowrap sm:text-sm",
-              active ? "border-brand-600 font-medium text-brand-800" : "border-transparent text-stone-500 hover:text-brand-800",
+              "rounded-full px-4 py-2 text-[15px] whitespace-nowrap transition sm:text-sm",
+              active ? "bg-brand-900 font-medium text-white shadow-sm" : "border border-brand-200 bg-white text-stone-600 hover:border-brand-300 hover:text-brand-900",
             )}
           >
             {t.label}

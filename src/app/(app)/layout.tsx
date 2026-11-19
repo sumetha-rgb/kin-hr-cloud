@@ -27,7 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     approve,
     payroll,
     ...(hr ? [{ href: "/reports", label: "Report", sub: "รายงาน", icon: "chart" }] : []),
-    { href: "/account", label: "บัญชีของฉัน", icon: "user" },
+    { href: "/account", label: "โปรไฟล์ของฉัน", icon: "user" },
   ];
 
   // แถบล่างมือถือ: ปุ่มสแกนนิ้วอยู่กลาง (ช่องที่ 3)
@@ -39,9 +39,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-dvh">
-      <Sidebar items={items} mobileItems={mobileItems} user={{ name: user.displayName, role: ROLE_LABEL[user.role] }} logoutAction={logout} />
-      <main className="px-4 pt-4 pb-28 sm:px-6 lg:ml-64 lg:px-8 lg:py-7">
-        <div className="mx-auto max-w-7xl">{children}</div>
+      <Sidebar
+        items={items}
+        mobileItems={mobileItems}
+        user={{ name: user.displayName, role: ROLE_LABEL[user.role], employeeId: user.employeeId, photoVersion: user.photoVersion }}
+        logoutAction={logout}
+      />
+      <main className="px-4 pt-5 pb-32 sm:px-6 lg:ml-64 lg:px-10 lg:py-8">
+        <div className="animate-in mx-auto max-w-7xl">{children}</div>
       </main>
     </div>
   );

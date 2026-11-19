@@ -34,11 +34,16 @@ export function LoginForm({ next }: { next: string }) {
       <button disabled={pending} className={`${btn.primary} min-h-12! w-full text-base`}>
         {pending ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}
       </button>
+      <div className="flex items-center gap-3 text-xs text-stone-400">
+        <span className="h-px flex-1 bg-brand-100" />
+        หรือ
+        <span className="h-px flex-1 bg-brand-100" />
+      </div>
       <button
         type="button"
         disabled={pending}
         onClick={loginAsHr}
-        className="min-h-12 w-full rounded-xl border border-brand-300 bg-brand-50 text-base font-medium text-brand-800 transition hover:bg-brand-100 disabled:opacity-50"
+        className="min-h-12 w-full rounded-full border border-brand-300 bg-brand-50 text-base font-medium text-brand-800 transition hover:bg-brand-100 disabled:opacity-50"
       >
         เข้าสู่บัญชี HR (ทดลอง)
       </button>

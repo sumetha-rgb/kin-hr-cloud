@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { db } from "@/db";
-import { employees, users, type Role } from "@/db/schema";
+import { employeePhotos, employees, users, type Role } from "@/db/schema";
 import { readSession } from "./session";
 
 export type CurrentUser = {
@@ -11,6 +11,9 @@ export type CurrentUser = {
   role: Role;
   employeeId: number | null;
   displayName: string;
+  nickname: string | null;
+  /** เวลาอัปเดตรูปโปรไฟล์ (ms) ใช้เป็น cache-buster · null = ยังไม่มีรูป */
+  photoVersion: number | null;
 };
 
 /** ดึงผู้ใช้จาก DB ทุก request (role/สถานะล่าสุดเสมอ) — cache() กันยิงซ้ำใน request เดียว */
@@ -27,9 +30,12 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       firstName: employees.firstName,
       lastName: employees.lastName,
       empStatus: employees.status,
+      nickname: employees.nickname,
+      photoAt: employeePhotos.updatedAt,
     })
     .from(users)
     .leftJoin(employees, eq(users.employeeId, employees.id))
+    .leftJoin(employeePhotos, eq(employeePhotos.employeeId, employees.id))
     .where(eq(users.id, s.uid))
     .limit(1);
   if (!row || !row.active || row.empStatus === "resigned") return null;
@@ -39,6 +45,8 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     role: row.role,
     employeeId: row.employeeId,
     displayName: row.firstName ? `${row.firstName} ${row.lastName}` : row.username,
+    nickname: row.nickname,
+    photoVersion: row.photoAt ? row.photoAt.getTime() : null,
   };
 });
 

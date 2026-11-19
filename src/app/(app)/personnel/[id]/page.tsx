@@ -1,7 +1,8 @@
 import { desc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { employees, users, webauthnCredentials } from "@/db/schema";
+import { employeePhotos, employees, users, webauthnCredentials } from "@/db/schema";
+import { PhotoUploader } from "@/components/photo-uploader";
 import { SubmitButton } from "@/components/submit-button";
 import { Badge, Card, Checkbox, Field, Flash, Input, LinkButton, PageHeader, Select } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
@@ -22,7 +23,10 @@ export default async function EmployeePage({
   const sp = await searchParams;
   const [e] = await db.select().from(employees).where(eq(employees.id, Number(id)));
   if (!e) notFound();
-  const [account] = await db.select().from(users).where(eq(users.employeeId, e.id));
+  const [[account], [photo]] = await Promise.all([
+    db.select().from(users).where(eq(users.employeeId, e.id)),
+    db.select({ at: employeePhotos.updatedAt }).from(employeePhotos).where(eq(employeePhotos.employeeId, e.id)),
+  ]);
   const creds = account
     ? await db.select().from(webauthnCredentials).where(eq(webauthnCredentials.userId, account.id)).orderBy(desc(webauthnCredentials.createdAt))
     : [];
@@ -41,6 +45,9 @@ export default async function EmployeePage({
       <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
         <EmployeeForm employee={e} />
         <div className="space-y-5">
+          <Card title="รูปโปรไฟล์" subtitle="พนักงานเปลี่ยนเองได้ที่หน้าโปรไฟล์">
+            <PhotoUploader employeeId={e.id} name={fullName(e)} version={photo?.at.getTime() ?? null} back={`/personnel/${e.id}`} />
+          </Card>
           <Card title="บัญชีเข้าใช้งาน">
             <form action={saveAccount} className="space-y-3">
               <input type="hidden" name="employeeId" value={e.id} />
