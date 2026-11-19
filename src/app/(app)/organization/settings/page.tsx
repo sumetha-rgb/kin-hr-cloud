@@ -8,9 +8,28 @@ export const metadata = { title: "ตั้งค่าบริษัท" };
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ ok?: string; error?: string }> }) {
   const sp = await searchParams;
   const s = await getSettings();
+  // บอกว่าระบบต่อฐานข้อมูล Neon ตัวไหน (endpoint + region) — ไม่แสดงรหัสผ่าน
+  const dbHost = (() => {
+    try {
+      return new URL(process.env.DATABASE_URL ?? "").hostname;
+    } catch {
+      return "";
+    }
+  })();
+  const endpoint = dbHost.split(".")[0]?.replace("-pooler", "") ?? "-";
+  const region = dbHost.match(/\.([a-z]{2}-[a-z]+-\d)\.aws/)?.[1] ?? "-";
+  const regionName: Record<string, string> = { "ap-southeast-1": "สิงคโปร์", "us-east-2": "โอไฮโอ สหรัฐฯ", "us-east-1": "เวอร์จิเนีย สหรัฐฯ" };
   return (
     <div className="max-w-3xl">
       <Flash ok={sp.ok} error={sp.error} />
+      <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm">
+        <span className="font-medium text-brand-800">ฐานข้อมูลที่ใช้อยู่</span>
+        <span className="font-mono text-brand-900">{endpoint}</span>
+        <span className="text-stone-600">
+          Region: {regionName[region] ?? region} ({region})
+        </span>
+        <span className="text-xs text-stone-500">เทียบกับชื่อ endpoint ในหน้า Neon → Connect ได้</span>
+      </div>
       <form action={saveSettings} className="space-y-5">
         <Card title="ข้อมูลบริษัท">
           <div className="grid gap-3 sm:grid-cols-2">
