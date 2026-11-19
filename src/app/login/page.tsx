@@ -6,62 +6,94 @@ import { LoginForm } from "./login-form";
 export const metadata = { title: "เข้าสู่ระบบ" };
 
 const FEATURES = [
-  { t: "สแกนนิ้ว / Face ID ลงเวลา", d: "บนมือถือของพนักงาน พร้อมตรวจพิกัดสาขา" },
-  { t: "ลา · OT · แก้เวลา ออนไลน์", d: "หัวหน้าอนุมัติได้ทันทีจากทุกที่" },
-  { t: "เงินเดือนและสลิปอัตโนมัติ", d: "คำนวณประกันสังคมและภาษีให้ครบ" },
+  { icon: "👆", t: "สแกนนิ้ว / Face ID" },
+  { icon: "📝", t: "ลา · OT ออนไลน์" },
+  { icon: "💰", t: "สลิปเงินเดือน" },
 ];
+
+/** ภาพตัวอย่างหน้าจอลงเวลาบนมือถือ (วาดด้วย HTML ล้วน ไม่ต้องโหลดรูป) */
+function PhonePreview() {
+  return (
+    <div className="relative">
+      <div className="absolute -inset-10 rounded-full bg-brand-300/30 blur-3xl" />
+      <div className="relative w-[280px] rounded-[44px] border-[10px] border-white bg-white shadow-[0_30px_80px_-20px_rgba(94,72,48,0.45)] ring-1 ring-brand-200">
+        <div className="overflow-hidden rounded-[34px] bg-gradient-to-b from-brand-50 to-white">
+          <div className="mx-auto mt-2 h-5 w-24 rounded-full bg-brand-900/90" />
+          <div className="px-5 pt-5 pb-6 text-center">
+            <p className="text-[11px] text-brand-600">วันพฤหัสบดี 19 พ.ย. 2569</p>
+            <p className="mt-1 text-[40px] leading-none font-semibold tracking-tight text-brand-900 tabular-nums">08:02</p>
+            <span className="mt-3 inline-block rounded-full bg-emerald-50 px-3 py-1 text-[11px] text-emerald-700">📍 อยู่ในพื้นที่ KIN ลาดพร้าว 71</span>
+            <div className="mt-6 flex justify-center">
+              <span className="relative flex size-24 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-700 text-white shadow-lg shadow-brand-700/30">
+                <span className="absolute inset-0 animate-ping rounded-full bg-brand-400/30 [animation-duration:2.4s]" />
+                <svg viewBox="0 0 24 24" className="relative size-12" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" aria-hidden>
+                  <path d="M12 11v6m-4-4c0-2.2 1.8-4 4-4s4 1.8 4 4v1m-12-1a8 8 0 0 1 16 0v2M7 19a10 10 0 0 0 1-4" />
+                </svg>
+              </span>
+            </div>
+            <p className="mt-4 text-sm font-semibold text-brand-900">แตะเพื่อสแกนเข้างาน</p>
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[12px] font-medium text-emerald-700">ลงเวลาเข้าสำเร็จ 08:02 น. ✅</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   if (await getCurrentUser()) redirect("/");
   const { next } = await searchParams;
   return (
-    <main className="grid min-h-dvh bg-canvas lg:grid-cols-[1.05fr_1fr]">
-      {/* ฝั่งแบรนด์ (คอม) */}
-      <section className="relative hidden overflow-hidden bg-[radial-gradient(circle_at_80%_10%,rgba(220,196,160,.35),transparent_45%),linear-gradient(140deg,#5e4830_0%,#3a2817_45%,#24180b_100%)] p-12 text-white lg:flex lg:flex-col">
-        <div className="pointer-events-none absolute -bottom-24 -left-24 size-96 rounded-full border-[48px] border-white/[.04]" />
-        <div className="pointer-events-none absolute top-1/3 -right-20 size-72 rounded-full border-[36px] border-brand-300/[.07]" />
-        <div className="relative flex items-center gap-3">
-          <span className="flex size-14 items-center justify-center rounded-2xl bg-white shadow-lg">
-            <img src="/kin-logo.png" alt="" width={46} height={46} />
+    <main className="relative grid min-h-dvh overflow-hidden bg-white lg:grid-cols-2">
+      {/* ฟอร์ม */}
+      <section className="relative flex flex-col px-5 py-8 sm:px-10 lg:px-16">
+        <div className="pointer-events-none absolute -top-32 -left-32 size-80 rounded-full bg-brand-100/80 blur-3xl lg:hidden" />
+        <header className="relative flex items-center gap-2.5">
+          <span className="flex size-11 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-brand-200">
+            <img src="/kin-logo.png" alt="" width={36} height={36} />
           </span>
           <span className="leading-tight">
-            <span className="block text-lg font-semibold tracking-wide">KIN HR</span>
-            <span className="block text-sm text-brand-200/80">Rehabilitation &amp; Homecare</span>
+            <span className="block font-semibold tracking-wide text-brand-900">KIN HR</span>
+            <span className="block text-[11px] text-brand-600">Rehabilitation &amp; Homecare</span>
           </span>
-        </div>
-        <div className="relative mt-auto max-w-md">
-          <h2 className="text-[34px] leading-tight font-semibold tracking-tight">
-            ดูแลทีมงาน
-            <br />
-            <span className="text-brand-300">ง่ายขึ้นในที่เดียว</span>
-          </h2>
-          <ul className="mt-8 space-y-4">
-            {FEATURES.map((f) => (
-              <li key={f.t} className="flex gap-3">
-                <span className="mt-1 flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-400/25 text-sm text-brand-200">✓</span>
-                <span>
-                  <span className="block font-medium">{f.t}</span>
-                  <span className="block text-sm text-brand-200/75">{f.d}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <p className="relative mt-12 text-xs text-brand-300/60">© KIN Rehabilitation &amp; Homecare</p>
-      </section>
+        </header>
 
-      {/* ฟอร์ม */}
-      <section className="flex items-center justify-center bg-[radial-gradient(ellipse_at_top,#f5ede2,transparent_60%)] p-5 sm:p-10">
-        <div className="animate-in w-full max-w-sm">
-          <div className="mb-7 text-center lg:text-left">
-            <img src="/kin-logo.png" alt="KIN Rehabilitation & Homecare" width={88} height={88} className="mx-auto lg:hidden" />
-            <h1 className="mt-3 text-[26px] font-semibold tracking-tight text-brand-900 lg:mt-0">ยินดีต้อนรับ 👋</h1>
-            <p className="mt-1 text-[15px] text-brand-700">เข้าสู่ระบบ KIN HR ด้วยรหัสพนักงานของคุณ</p>
-          </div>
-          <div className="rounded-3xl border border-brand-200/80 bg-white p-6 shadow-lift sm:p-7">
+        <div className="animate-in relative mx-auto my-auto w-full max-w-[400px] py-10">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700 ring-1 ring-brand-200">
+            <span className="size-1.5 rounded-full bg-emerald-500" />
+            ระบบบริหารงานบุคคล
+          </span>
+          <h1 className="mt-4 text-[30px] leading-tight font-semibold tracking-tight text-brand-900 sm:text-[34px]">เข้าสู่ระบบ</h1>
+          <p className="mt-2 text-[15px] text-stone-500">ใช้รหัสพนักงานและรหัสผ่านที่ได้รับจากฝ่ายบุคคล</p>
+
+          <div className="mt-8">
             <LoginForm next={next ?? "/"} />
           </div>
-          <p className="mt-5 text-center text-sm text-stone-500">ลืมรหัสผ่าน กรุณาติดต่อฝ่ายบุคคล</p>
+
+          <p className="mt-8 text-center text-sm text-stone-500">
+            ลืมรหัสผ่าน? <span className="font-medium text-brand-700">ติดต่อฝ่ายบุคคล</span>
+          </p>
+        </div>
+
+        <footer className="relative flex flex-wrap justify-center gap-2 lg:justify-start">
+          {FEATURES.map((f) => (
+            <span key={f.t} className="rounded-full bg-brand-50 px-3 py-1 text-xs text-brand-700 ring-1 ring-brand-100">
+              {f.icon} {f.t}
+            </span>
+          ))}
+        </footer>
+      </section>
+
+      {/* ภาพประกอบ (คอม) */}
+      <section className="relative m-3 hidden items-center justify-center overflow-hidden rounded-[32px] bg-[radial-gradient(circle_at_30%_20%,#fff_0%,transparent_50%),linear-gradient(160deg,#faf7f4_0%,#f5ede2_55%,#e8ddd0_100%)] lg:flex">
+        <div className="pointer-events-none absolute top-16 right-16 size-40 rounded-full border-[18px] border-white/70" />
+        <div className="pointer-events-none absolute bottom-20 left-14 size-24 rounded-full bg-brand-300/40 blur-xl" />
+        <div className="relative flex flex-col items-center gap-10">
+          <PhonePreview />
+          <div className="max-w-sm text-center">
+            <h2 className="text-2xl font-semibold tracking-tight text-brand-900">ลงเวลาง่าย ด้วยมือถือของคุณ</h2>
+            <p className="mt-2 text-[15px] text-brand-700">สแกนนิ้วหรือ Face ID พร้อมตรวจพิกัดสาขาอัตโนมัติ ข้อมูลลายนิ้วมือไม่ออกจากเครื่อง</p>
+          </div>
         </div>
       </section>
     </main>
