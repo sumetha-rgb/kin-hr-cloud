@@ -11,5 +11,6 @@ export function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!login|api|_next|icon.svg|manifest.webmanifest|favicon.ico).*)"],
+  // ยกเว้นหน้า login, API, ไฟล์ของ Next และไฟล์ที่มีนามสกุล (รูป โลโก้ manifest) ไม่ต้องล็อกอินก็โหลดได้
+  matcher: ["/((?!login|api|_next|.*\\..*).*)"],
 };
