@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+/* โทนสีแบรนด์ KIN Rehabilitation & Homecare (ตาม kinweb-style-guide) */
+@theme {
+  --font-sans: var(--font-prompt), "Noto Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  --color-brand-50: #faf7f4;
+  --color-brand-100: #f5ede2;
+  --color-brand-200: #e8ddd0;
+  --color-brand-300: #dcc4a0;
+  --color-brand-400: #c19b6c; /* ทองหลัก KIN */
+  --color-brand-500: #a8833f;
+  --color-brand-600: #8b6a42; /* ปุ่มหลัก (ตัวอักษรขาวอ่านชัด) */
+  --color-brand-700: #78593a; /* หัวข้อ/ตัวอักษรเน้น */
+  --color-brand-800: #5e4830;
+  --color-brand-900: #2c1e0f; /* น้ำตาลเข้ม เมนู */
+  --color-chart: #9c6e1f;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: #faf7f4;
+  color: #2c1e0f;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* มือถือ: ตัวอักษรใหญ่ขึ้นเล็กน้อยให้อ่านง่าย */
+@media (max-width: 640px) {
+  html {
+    font-size: 16.5px;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}

@@ -1,0 +1,59 @@
+import { and, desc, eq } from "drizzle-orm";
+import Link from "next/link";
+import { db } from "@/db";
+import { payrollItems, payrollRuns } from "@/db/schema";
+import { DesktopOnly, MobileCard, MobileList, PageHeader, Table } from "@/components/ui";
+import { requireUser } from "@/lib/auth";
+import { fmtDate, fmtMonth } from "@/lib/time";
+import { fmtMoney } from "@/lib/util";
+
+export const metadata = { title: "สลิปเงินเดือน" };
+
+export default async function MySlips() {
+  const u = await requireUser();
+  const rows = u.employeeId
+    ? await db
+        .select({ i: payrollItems, run: payrollRuns })
+        .from(payrollItems)
+        .innerJoin(payrollRuns, eq(payrollItems.runId, payrollRuns.id))
+        .where(and(eq(payrollItems.employeeId, u.employeeId), eq(payrollRuns.status, "finalized")))
+        .orderBy(desc(payrollRuns.year), desc(payrollRuns.month))
+    : [];
+  return (
+    <>
+      <PageHeader title="สลิปเงินเดือนของฉัน" />
+      <MobileList empty={!rows.length}>
+        {rows.map(({ i, run }) => (
+          <MobileCard key={i.id} href={`/payroll/${run.id}/slip/${i.employeeId}`}>
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-brand-900">{fmtMonth(run.year, run.month)}</span>
+              <span className="text-sm text-brand-700">ดูสลิป ›</span>
+            </div>
+            <div className="mt-1 text-[26px] font-semibold text-brand-900 tabular-nums">{fmtMoney(i.net)} ฿</div>
+            <div className="text-sm text-stone-500">
+              รายได้ {fmtMoney(i.gross)} · หัก {fmtMoney(Number(i.gross) - Number(i.net))}
+            </div>
+          </MobileCard>
+        ))}
+      </MobileList>
+      <DesktopOnly>
+        <Table head={["งวด", "รายได้", "รายการหัก", "สุทธิ", "ออกเมื่อ", ""]} empty={!rows.length}>
+          {rows.map(({ i, run }) => (
+            <tr key={i.id}>
+              <td className="font-medium">{fmtMonth(run.year, run.month)}</td>
+              <td className="tabular-nums">{fmtMoney(i.gross)}</td>
+              <td className="tabular-nums">{fmtMoney(Number(i.gross) - Number(i.net))}</td>
+              <td className="font-semibold tabular-nums">{fmtMoney(i.net)}</td>
+              <td className="text-stone-500">{fmtDate(run.finalizedAt)}</td>
+              <td>
+                <Link href={`/payroll/${run.id}/slip/${i.employeeId}`} className="text-brand-600">
+                  ดูสลิป
+                </Link>
+              </td>
+            </tr>
+          ))}
+        </Table>
+      </DesktopOnly>
+    </>
+  );
+}
