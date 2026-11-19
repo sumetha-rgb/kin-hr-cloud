@@ -86,6 +86,7 @@ export function DateRangeNav({
   prev,
   next,
   maxDays = 92,
+  defaultIsToday = true,
 }: {
   from: string;
   to: string;
@@ -95,6 +96,8 @@ export function DateRangeNav({
   prev: { from: string; to: string };
   next: { from: string; to: string };
   maxDays?: number;
+  /** หน้าไม่ระบุวันใน URL = วันนี้ (ตัด ?date= ออกให้ URL สั้น) · false = ใส่ ?date= เสมอ */
+  defaultIsToday?: boolean;
 }) {
   const href = useQueryHref();
   const router = useRouter();
@@ -102,7 +105,8 @@ export function DateRangeNav({
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
-  const rangeHref = (a: string, b: string) => (a === b ? href({ date: a === today ? null : a, from: null, to: null }) : href({ date: null, from: a, to: b }));
+  const rangeHref = (a: string, b: string) =>
+    a === b ? href({ date: a === today && defaultIsToday ? null : a, from: null, to: null }) : href({ date: null, from: a, to: b });
   const go = (a: string, b: string) => {
     setOpen(false);
     start(() => router.push(rangeHref(a, b), { scroll: false }));

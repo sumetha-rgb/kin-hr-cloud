@@ -2,9 +2,16 @@
 import { redirect } from "next/navigation";
 import { InstallApp } from "@/components/install-app";
 import { getCurrentUser } from "@/lib/auth";
-import { LoginForm } from "./login-form";
+import { getSettings } from "@/lib/payroll-run";
+import { LoginForm, type DemoAccount } from "./login-form";
 
 export const metadata = { title: "เข้าสู่ระบบ" };
+
+// บัญชีทดลอง (ข้อมูลจำลอง) — อยู่ฝั่งเซิร์ฟเวอร์ ส่งไปหน้าเว็บเฉพาะตอนเปิดปุ่มทดลอง
+const DEMO_ACCOUNTS: DemoAccount[] = [
+  { key: "hr", username: "e0002", password: "Demo@1234", label: "HR", desc: "จัดการทั้งระบบ" },
+  { key: "emp", username: "demo2", password: "1234", label: "พนักงาน", desc: "ลงเวลา · ยื่นลา" },
+];
 
 const FEATURES = [
   { icon: "👆", t: "สแกนนิ้ว / Face ID" },
@@ -44,6 +51,11 @@ function PhonePreview() {
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   if (await getCurrentUser()) redirect("/");
   const { next } = await searchParams;
+  // ปุ่มบัญชีทดลอง: HR เปิด/ปิดได้ที่ ดูแลระบบ → ตั้งค่าระบบ (ถ้าอ่านฐานข้อมูลไม่ได้ ให้ซ่อนไว้ก่อน)
+  const showDemo = await getSettings()
+    .then((s) => s.demoLogin)
+    .catch(() => false);
+  const demo = showDemo ? DEMO_ACCOUNTS : [];
   return (
     <main className="relative grid min-h-dvh overflow-hidden bg-white lg:grid-cols-2">
       {/* ฟอร์ม */}
@@ -68,7 +80,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <p className="mt-2 text-[15px] text-stone-500">ใช้รหัสพนักงานและรหัสผ่านที่ได้รับจากฝ่ายบุคคล</p>
 
           <div className="mt-8">
-            <LoginForm next={next ?? "/"} />
+            <LoginForm next={next ?? "/"} demo={demo} />
           </div>
 
           <p className="mt-6 text-center text-sm text-stone-500">

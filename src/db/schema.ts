@@ -40,6 +40,10 @@ export const companySettings = pgTable("company_settings", {
   ssoMaxBase: money("sso_max_base"),
   deductLate: boolean("deduct_late").notNull().default(true),
   maxGpsAccuracyM: integer("max_gps_accuracy_m").notNull().default(150),
+  // ตั้งค่าระบบ (หน้า ดูแลระบบ)
+  demoLogin: boolean("demo_login").notNull().default(true), // แสดงปุ่มบัญชีทดลองที่หน้า login
+  selfProfileEdit: boolean("self_profile_edit").notNull().default(true), // พนักงานแก้โปรไฟล์/รูปของตัวเองได้
+  announcement: text("announcement"), // ประกาศถึงพนักงาน แสดงที่หน้าหลัก
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

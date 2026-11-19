@@ -10,6 +10,7 @@ import { employeePhotos, employees, users } from "@/db/schema";
 import { audit } from "@/lib/audit";
 import { isHR, requireUser } from "@/lib/auth";
 import { parseForm } from "@/lib/form";
+import { getSettings } from "@/lib/payroll-run";
 import { withMsg } from "@/lib/util";
 
 export async function changePassword(fd: FormData) {
@@ -43,6 +44,7 @@ export async function saveMyProfile(fd: FormData) {
   const u = await requireUser();
   const P = "/account";
   if (!u.employeeId) redirect(withMsg(P, { error: "บัญชีนี้ไม่ได้ผูกกับพนักงาน" }));
+  if (!(await getSettings()).selfProfileEdit) redirect(withMsg(P, { error: "ฝ่ายบุคคลปิดการแก้ไขโปรไฟล์ด้วยตนเอง — กรุณาติดต่อ HR" }));
   const r = parseForm(profileSchema, fd);
   if (!r.ok) redirect(withMsg(P, { error: r.error }));
   const values = Object.fromEntries(Object.entries(r.data).map(([k, v]) => [k, v ?? null]));
@@ -60,6 +62,7 @@ export async function savePhoto(fd: FormData) {
   const back = String(fd.get("back") ?? "/account");
   const P = back.startsWith("/") ? back : "/account";
   if (!empId || (empId !== u.employeeId && !isHR(u))) redirect(withMsg(P, { error: "ไม่มีสิทธิ์แก้รูปของพนักงานคนนี้" }));
+  if (!isHR(u) && !(await getSettings()).selfProfileEdit) redirect(withMsg(P, { error: "ฝ่ายบุคคลปิดการแก้ไขโปรไฟล์ด้วยตนเอง — กรุณาติดต่อ HR" }));
 
   if (fd.get("remove") === "1") {
     await db.delete(employeePhotos).where(eq(employeePhotos.employeeId, empId));

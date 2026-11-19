@@ -26,7 +26,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     attendance,
     approve,
     payroll,
-    ...(hr ? [{ href: "/reports", label: "Report", sub: "รายงาน", icon: "chart" }] : []),
+    ...(hr
+      ? [
+          { href: "/reports", label: "Report", sub: "รายงาน", icon: "chart" },
+          { href: "/admin", label: "ดูแลระบบ", sub: "บัญชีผู้ใช้ · ประวัติ · ตั้งค่า", icon: "shield" },
+        ]
+      : []),
     { href: "/account", label: "โปรไฟล์ของฉัน", icon: "user" },
   ];
 

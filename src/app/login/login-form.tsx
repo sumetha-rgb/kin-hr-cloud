@@ -4,11 +4,7 @@ import { startTransition, useActionState, useState } from "react";
 import { login } from "./actions";
 import { cn } from "@/lib/util";
 
-// บัญชีทดลองระบบ (ข้อมูลจำลอง) — กดปุ่มเดียวเข้าสู่ระบบได้เลย · ต้องเอาออกก่อนใช้ข้อมูลพนักงานจริง
-const DEMO = {
-  hr: { username: "e0002", password: "Demo@1234", label: "HR", desc: "จัดการทั้งระบบ" },
-  emp: { username: "demo2", password: "1234", label: "พนักงาน", desc: "ลงเวลา · ยื่นลา" },
-} as const;
+export type DemoAccount = { key: "hr" | "emp"; username: string; password: string; label: string; desc: string };
 
 const fieldCls =
   "peer w-full min-h-13 rounded-2xl border border-brand-200 bg-white pr-4 pl-12 text-base text-brand-900 outline-none transition placeholder:text-stone-400 hover:border-brand-300 focus:border-brand-400 focus:ring-4 focus:ring-brand-100";
@@ -30,14 +26,14 @@ function FieldIcon({ d }: { d: string }) {
   );
 }
 
-export function LoginForm({ next }: { next: string }) {
+/** demo: ส่งมาจากเซิร์ฟเวอร์เฉพาะตอน HR เปิดปุ่มบัญชีทดลอง (ปิดแล้วรหัสจะไม่อยู่ในหน้าเว็บเลย) */
+export function LoginForm({ next, demo }: { next: string; demo: DemoAccount[] }) {
   const [state, action, pending] = useActionState(login, undefined);
   const [show, setShow] = useState(false);
   // ควบคุมค่าเองเพื่อไม่ให้ชื่อผู้ใช้ถูกล้างเมื่อรหัสผ่านผิด (React ล้างฟอร์มหลังส่งทุกครั้ง)
   const [username, setUsername] = useState("");
 
-  function loginAsDemo(kind: keyof typeof DEMO) {
-    const d = DEMO[kind];
+  function loginAsDemo(d: DemoAccount) {
     setUsername(d.username);
     const fd = new FormData();
     fd.set("next", next);
@@ -95,6 +91,8 @@ export function LoginForm({ next }: { next: string }) {
         )}
       </button>
 
+      {demo.length > 0 && (
+        <>
       <div className="flex items-center gap-3 pt-1 text-xs text-stone-400">
         <span className="h-px flex-1 bg-brand-100" />
         หรือทดลองใช้งาน
@@ -102,24 +100,26 @@ export function LoginForm({ next }: { next: string }) {
       </div>
 
       <div className="grid grid-cols-2 gap-2.5">
-        {(Object.keys(DEMO) as Array<keyof typeof DEMO>).map((k) => (
+        {demo.map((d) => (
           <button
-            key={k}
+            key={d.key}
             type="button"
             disabled={pending}
-            onClick={() => loginAsDemo(k)}
+            onClick={() => loginAsDemo(d)}
             className="flex flex-col items-center gap-1 rounded-2xl border border-dashed border-brand-300 bg-brand-50/60 px-2 py-3 transition hover:border-brand-400 hover:bg-brand-100/70 active:scale-[.98] disabled:opacity-50"
           >
-            <span className={cn("flex size-9 items-center justify-center rounded-full text-white shadow-sm", k === "hr" ? "bg-brand-700" : "bg-emerald-600")}>
+            <span className={cn("flex size-9 items-center justify-center rounded-full text-white shadow-sm", d.key === "hr" ? "bg-brand-700" : "bg-emerald-600")}>
               <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d={k === "hr" ? "M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1m20 0v-1a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8M9 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8" : "M12 11v6m-4-4c0-2.2 1.8-4 4-4s4 1.8 4 4v1m-12-1a8 8 0 0 1 16 0v2M7 19a10 10 0 0 0 1-4"} />
+                <path d={d.key === "hr" ? "M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1m20 0v-1a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8M9 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8" : "M12 11v6m-4-4c0-2.2 1.8-4 4-4s4 1.8 4 4v1m-12-1a8 8 0 0 1 16 0v2M7 19a10 10 0 0 0 1-4"} />
               </svg>
             </span>
-            <span className="text-[15px] font-semibold text-brand-900">{DEMO[k].label} (ทดลอง)</span>
-            <span className="text-xs text-stone-500">{DEMO[k].desc}</span>
+            <span className="text-[15px] font-semibold text-brand-900">{d.label} (ทดลอง)</span>
+            <span className="text-xs text-stone-500">{d.desc}</span>
           </button>
         ))}
       </div>
+        </>
+      )}
     </form>
   );
 }

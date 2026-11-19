@@ -9,6 +9,7 @@ import { Badge, Card, DesktopOnly, Flash, MobileList, Stat, Table } from "@/comp
 import { approvableWhere } from "@/lib/approval";
 import { requireUser } from "@/lib/auth";
 import { loadAttendance } from "@/lib/attendance-data";
+import { getSettings } from "@/lib/payroll-run";
 import { addDays, atBkk, bkkDateStr, bkkTimeStr, fmtDate, fmtMonth, isoWeekday, WEEKDAY_TH } from "@/lib/time";
 import { fmtMoney, fullName } from "@/lib/util";
 import { RequestSummary, TypeBadge } from "./requests/request-detail";
@@ -29,7 +30,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const hr = user.role === "admin" || user.role === "hr";
   const approver = user.role !== "employee";
 
-  const [mine, [pendingMine], [lastSlip], pendingForMe] = await Promise.all([
+  const [settings, mine, [pendingMine], [lastSlip], pendingForMe] = await Promise.all([
+    getSettings(),
     user.employeeId
       ? db
           .select()
@@ -67,6 +69,22 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   return (
     <>
       <Flash ok={sp.ok} error={sp.error} />
+      {settings.announcement && (
+        <div role="status" className="mb-5 flex items-start gap-3 rounded-3xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white p-4 shadow-card">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-lg" aria-hidden>
+            📢
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-medium tracking-wide text-amber-700">ประกาศจากฝ่ายบุคคล</p>
+            <p className="mt-0.5 text-[15px] whitespace-pre-line text-brand-900">{settings.announcement}</p>
+          </div>
+          {hr && (
+            <Link href="/admin/settings" className="ml-auto shrink-0 text-xs text-amber-700 underline-offset-4 hover:underline">
+              แก้ไข
+            </Link>
+          )}
+        </div>
+      )}
       {/* ส่วนต้อนรับ */}
       <section className="relative mb-6 overflow-hidden rounded-[28px] bg-[radial-gradient(circle_at_85%_0%,rgba(220,196,160,.45),transparent_45%),linear-gradient(125deg,#5e4830_0%,#3a2817_50%,#2c1e0f_100%)] p-5 text-white shadow-lift sm:p-7">
         <div className="pointer-events-none absolute -right-10 -bottom-16 size-56 rounded-full border-[28px] border-white/[.04]" />

@@ -20,6 +20,7 @@ const ICONS: Record<string, string> = {
   chart: "M4 20V10m6 10V4m6 16v-7m4 7H2",
   user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8",
   menu: "M4 6h16M4 12h16M4 18h16",
+  shield: "M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6zM9 12l2 2 4-4",
 };
 
 export function Icon({ name, className = "size-5" }: { name: string; className?: string }) {

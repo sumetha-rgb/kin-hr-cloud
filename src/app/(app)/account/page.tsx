@@ -7,7 +7,8 @@ import { Avatar } from "@/components/avatar";
 import { PhotoUploader } from "@/components/photo-uploader";
 import { SubmitButton } from "@/components/submit-button";
 import { Badge, Card, Field, Flash, Input, InfoRow, Textarea } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { isHR, requireUser } from "@/lib/auth";
+import { getSettings } from "@/lib/payroll-run";
 import { fmtDate, fmtDateTime } from "@/lib/time";
 import { fullName, ROLE_LABEL, STATUS_LABEL } from "@/lib/util";
 import { changePassword, saveMyProfile } from "./actions";
@@ -18,7 +19,8 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   const u = await requireUser();
   const sp = await searchParams;
   const mgr = alias(employees, "mgr");
-  const [creds, [row]] = await Promise.all([
+  const [settings, creds, [row]] = await Promise.all([
+    getSettings(),
     db.select().from(webauthnCredentials).where(eq(webauthnCredentials.userId, u.id)),
     u.employeeId
       ? db
@@ -33,6 +35,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       : Promise.resolve([]),
   ]);
   const e = row?.e;
+  const canEdit = settings.selfProfileEdit || isHR(u); // HR ปิดได้ที่ ดูแลระบบ → ตั้งค่าระบบ
 
   return (
     <>
@@ -43,10 +46,10 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         <div className="h-28 bg-[radial-gradient(circle_at_20%_20%,#dcc4a0,transparent_55%),linear-gradient(120deg,#78593a,#2c1e0f)] sm:h-32" />
         <div className="flex flex-col items-center gap-4 px-5 pb-6 sm:flex-row sm:items-end sm:gap-6 sm:px-8">
           <div className="-mt-16 sm:-mt-14">
-            {e ? (
+            {e && canEdit ? (
               <PhotoUploader employeeId={e.id} name={u.displayName} version={u.photoVersion} back="/account" size={120} />
             ) : (
-              <Avatar name={u.displayName} size={120} className="shadow-md ring-4 ring-white" />
+              <Avatar name={u.displayName} employeeId={e?.id} version={u.photoVersion} size={120} className="shadow-md ring-4 ring-white" />
             )}
           </div>
           <div className="min-w-0 flex-1 text-center sm:pb-1 sm:text-left">
@@ -68,8 +71,9 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
         <div className="space-y-5">
           {e ? (
-            <Card title="ข้อมูลส่วนตัว" subtitle="ข้อมูลส่วนนี้คุณแก้ไขได้เอง">
-              <form action={saveMyProfile} className="grid gap-4 sm:grid-cols-2">
+            <Card title="ข้อมูลส่วนตัว" subtitle={canEdit ? "ข้อมูลส่วนนี้คุณแก้ไขได้เอง" : "ฝ่ายบุคคลปิดการแก้ไขด้วยตนเอง — หากต้องการเปลี่ยน กรุณาติดต่อ HR"}>
+              <form action={saveMyProfile}>
+                <fieldset disabled={!canEdit} className="grid gap-4 sm:grid-cols-2">
                 <Field label="ชื่อเล่น">
                   <Input name="nickname" defaultValue={e.nickname ?? ""} maxLength={40} />
                 </Field>
@@ -94,9 +98,12 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
                 <Field label="แนะนำตัวสั้นๆ" hint="ไม่เกิน 300 ตัวอักษร · แสดงบนโปรไฟล์ของคุณ" className="sm:col-span-2">
                   <Textarea name="bio" rows={2} maxLength={300} defaultValue={e.bio ?? ""} />
                 </Field>
-                <div className="sm:col-span-2">
-                  <SubmitButton>บันทึกโปรไฟล์</SubmitButton>
-                </div>
+                {canEdit && (
+                  <div className="sm:col-span-2">
+                    <SubmitButton>บันทึกโปรไฟล์</SubmitButton>
+                  </div>
+                )}
+                </fieldset>
               </form>
             </Card>
           ) : (
