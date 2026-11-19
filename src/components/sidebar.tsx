@@ -49,7 +49,7 @@ export function Sidebar({
 
   const nav = (
     <nav className="flex flex-col gap-0.5 px-3 py-4">
-      <div className="px-3 pb-2 text-[11px] font-medium tracking-[0.14em] text-brand-300/60 uppercase">เมนู</div>
+      <div className="px-3 pb-2 text-[11px] font-medium tracking-[0.14em] text-stone-400 uppercase">เมนู</div>
       {items.map((it) => {
         const active = isActive(it.href);
         return (
@@ -58,15 +58,15 @@ export function Sidebar({
             href={it.href}
             className={cn(
               "group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[15px] transition",
-              active ? "bg-gradient-to-r from-brand-400 to-brand-500 font-medium text-white shadow-lg shadow-black/20" : "text-brand-100/75 hover:bg-white/[.06] hover:text-white",
+              active ? "bg-gradient-to-r from-brand-400 to-brand-500 font-medium text-white shadow-md shadow-brand-500/30" : "text-stone-600 hover:bg-brand-50 hover:text-brand-900",
             )}
           >
-            <span className={cn("flex size-8 items-center justify-center rounded-xl transition", active ? "bg-white/20" : "bg-white/[.05] group-hover:bg-white/10")}>
+            <span className={cn("flex size-8 items-center justify-center rounded-xl transition", active ? "bg-white/25" : "bg-brand-50 text-brand-500 group-hover:bg-brand-100")}>
               <Icon name={it.icon} className="size-[18px]" />
             </span>
             <span className="leading-tight">
               {it.label}
-              {it.sub && <span className={cn("block text-[11px] font-normal", active ? "text-white/80" : "text-brand-300/55")}>{it.sub}</span>}
+              {it.sub && <span className={cn("block text-[11px] font-normal", active ? "text-white/85" : "text-stone-400")}>{it.sub}</span>}
             </span>
           </Link>
         );
@@ -94,30 +94,30 @@ export function Sidebar({
       {open && <div className="fixed inset-0 z-40 bg-brand-900/50 backdrop-blur-[2px] lg:hidden" onClick={() => setOpen(false)} />}
       <aside
         className={cn(
-          "no-print fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[linear-gradient(180deg,#3a2817_0%,#2c1e0f_55%,#24180b_100%)] text-white shadow-2xl transition-transform lg:w-64 lg:translate-x-0 lg:shadow-none",
+          "no-print fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-brand-200/80 bg-white shadow-2xl transition-transform lg:w-64 lg:translate-x-0 lg:shadow-none",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <Link href="/">
-            <KinLogo size={42} dark />
+            <KinLogo size={42} />
           </Link>
-          <button onClick={() => setOpen(false)} className="rounded-xl p-2 text-brand-200 hover:bg-white/10 lg:hidden" aria-label="ปิดเมนู">
+          <button onClick={() => setOpen(false)} className="rounded-xl p-2 text-brand-700 hover:bg-brand-50 lg:hidden" aria-label="ปิดเมนู">
             ✕
           </button>
         </div>
         <div className="flex-1 overflow-y-auto">{nav}</div>
         <div className="p-3">
-          <div className="rounded-2xl bg-white/[.06] p-2 ring-1 ring-white/10">
-            <Link href="/account" className="flex items-center gap-3 rounded-xl p-2 transition hover:bg-white/[.06]">
-              <Avatar name={user.name} employeeId={user.employeeId} version={user.photoVersion} size={40} className="ring-2 ring-brand-400/60" />
+          <div className="rounded-2xl bg-brand-50/70 p-2 ring-1 ring-brand-200/70">
+            <Link href="/account" className="flex items-center gap-3 rounded-xl p-2 transition hover:bg-white">
+              <Avatar name={user.name} employeeId={user.employeeId} version={user.photoVersion} size={40} className="ring-2 ring-white" />
               <span className="min-w-0 leading-tight">
-                <span className="block truncate text-sm font-medium text-white">{user.name}</span>
-                <span className="block text-xs text-brand-300/80">{user.role} · ดูโปรไฟล์</span>
+                <span className="block truncate text-sm font-medium text-brand-900">{user.name}</span>
+                <span className="block text-xs text-brand-600">{user.role} · ดูโปรไฟล์</span>
               </span>
             </Link>
             <form action={logoutAction}>
-              <button className="mt-1 w-full rounded-xl px-3 py-2 text-left text-sm text-brand-200/80 transition hover:bg-white/[.06] hover:text-white">ออกจากระบบ</button>
+              <button className="mt-1 w-full rounded-xl px-3 py-2 text-left text-sm text-stone-500 transition hover:bg-white hover:text-rose-700">ออกจากระบบ</button>
             </form>
           </div>
         </div>
