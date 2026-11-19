@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import { redirect } from "next/navigation";
+import { InstallApp } from "@/components/install-app";
 import { getCurrentUser } from "@/lib/auth";
 import { LoginForm } from "./login-form";
 
@@ -70,9 +71,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <LoginForm next={next ?? "/"} />
           </div>
 
-          <p className="mt-8 text-center text-sm text-stone-500">
+          <p className="mt-6 text-center text-sm text-stone-500">
             ลืมรหัสผ่าน? <span className="font-medium text-brand-700">ติดต่อฝ่ายบุคคล</span>
           </p>
+
+          <InstallApp className="mt-6" />
         </div>
 
         <footer className="relative flex flex-wrap justify-center gap-2 lg:justify-start">

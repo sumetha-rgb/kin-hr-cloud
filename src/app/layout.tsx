@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: { default: "KIN HR", template: "%s · KIN HR" },
   description: "ระบบบริหารงานบุคคล KIN Rehabilitation & Homecare · ลงเวลาด้วยลายนิ้วมือบนมือถือ",
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icon.svg", apple: "/kin-logo.png" },
+  icons: { icon: "/icon.svg", apple: "/apple-touch-icon.png" },
   appleWebApp: { capable: true, title: "KIN HR", statusBarStyle: "default" },
 };
 
