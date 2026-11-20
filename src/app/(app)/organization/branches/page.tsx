@@ -20,28 +20,30 @@ export default async function BranchesPage({ searchParams }: { searchParams: Pro
   const edit = rows.find((r) => r.b.id === Number(sp.edit))?.b;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
+    <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
       <div>
         <Flash ok={sp.ok} error={sp.error} />
-        <Table head={["รหัส", "ชื่อสาขา", "พิกัด", "รัศมี", "พนักงาน", "สถานะ", ""]} empty={!rows.length}>
+        <Table head={["สาขา", "พิกัด / รัศมีลงเวลา", "พนักงาน", "สถานะ", ""]} empty={!rows.length}>
           {rows.map(({ b, n }) => (
             <tr key={b.id}>
-              <td className="font-medium">{b.code}</td>
               <td>
-                {b.name}
-                {b.address && <div className="text-xs text-stone-400">{b.address}</div>}
+                <span className="block font-medium text-brand-900">{b.name}</span>
+                <span className="block text-xs font-normal text-stone-500">
+                  {b.code}
+                  {b.address ? ` · ${b.address}` : ""}
+                </span>
               </td>
               <td>
                 {b.latitude != null ? (
-                  <a className="text-brand-600 underline" target="_blank" href={`https://maps.google.com/?q=${b.latitude},${b.longitude}`}>
+                  <a className="block text-brand-600 underline underline-offset-2 tabular-nums" target="_blank" href={`https://maps.google.com/?q=${b.latitude},${b.longitude}`}>
                     {b.latitude.toFixed(5)}, {b.longitude?.toFixed(5)}
                   </a>
                 ) : (
                   <Badge tone="amber">ยังไม่ตั้งพิกัด</Badge>
                 )}
+                <span className="block text-xs text-stone-500">รัศมี {b.radiusM} ม.</span>
               </td>
-              <td>{b.radiusM} ม.</td>
-              <td>{n}</td>
+              <td className="tabular-nums">{n} คน</td>
               <td>{b.active ? <Badge tone="green">ใช้งาน</Badge> : <Badge>ปิด</Badge>}</td>
               <td className="text-right whitespace-nowrap">
                 <Link href={`?edit=${b.id}`} className={btn.ghost}>

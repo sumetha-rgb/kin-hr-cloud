@@ -53,6 +53,71 @@ body {
   }
 }
 
+/* ตาราง (components/ui Table): คอมกว้างพอดีกรอบ · มือถือเป็นการ์ดทีละแถว — ไม่มีแถบเลื่อนแนวนอน */
+/* ตัดบรรทัดระหว่างคำเท่านั้น — ตัวเลข ปุ่ม ลิงก์ ป้ายสถานะ ห้ามขาดกลางคำ */
+.rtable td,
+.rtable th {
+  overflow-wrap: break-word;
+}
+.rtable :not(td).tabular-nums,
+.rtable a,
+.rtable button,
+.rtable [class*="rounded-full"] {
+  white-space: nowrap;
+}
+@media (max-width: 767px) {
+  .rtable thead {
+    display: none;
+  }
+  .rtable,
+  .rtable tbody,
+  .rtable tr,
+  .rtable td {
+    display: block;
+    width: 100%;
+  }
+  .rtable tr {
+    padding: 14px 16px;
+  }
+  .rtable td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 5px 0;
+    text-align: right;
+    font-size: 15px;
+  }
+  .rtable td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    max-width: 45%;
+    text-align: left;
+    font-size: 13px;
+    color: #78716c; /* stone-500 */
+  }
+  /* ช่องแรก = หัวการ์ด (ชื่อ/รหัส) ตัวหนา ไม่มีป้าย */
+  .rtable td:first-child {
+    justify-content: flex-start;
+    padding-bottom: 8px;
+    text-align: left;
+    font-weight: 600;
+    color: #2c1e0f; /* brand-900 */
+  }
+  .rtable td:first-child::before,
+  .rtable td[data-label=""]::before {
+    content: none;
+  }
+  /* ช่องที่ไม่มีหัวคอลัมน์ (ปุ่ม/ลิงก์) ชิดขวาเต็มบรรทัด */
+  .rtable td[data-label=""] {
+    justify-content: flex-end;
+    padding-top: 8px;
+  }
+  .rtable td.rtable-empty {
+    justify-content: center;
+  }
+}
+
 @media print {
   .no-print {
     display: none !important;

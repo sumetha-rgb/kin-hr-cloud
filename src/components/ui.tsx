@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Children, cloneElement, Fragment, isValidElement } from "react";
 import { cn } from "@/lib/util";
 import { Icon } from "./icons";
 
@@ -152,24 +153,49 @@ export function Checkbox({ label, ...props }: React.InputHTMLAttributes<HTMLInpu
   );
 }
 
-export function Table({ head, children, empty }: { head: React.ReactNode[]; children: React.ReactNode; empty?: boolean }) {
+/** ใส่ data-label (ชื่อหัวคอลัมน์) ให้ทุก <td> เพื่อให้บนมือถือแสดงเป็นการ์ด "หัวข้อ : ค่า" ได้เอง */
+function labelCells(node: React.ReactNode, labels: string[]): React.ReactNode {
+  return Children.map(node, (child) => {
+    if (!isValidElement(child)) return child;
+    const el = child as React.ReactElement<{ children?: React.ReactNode }>;
+    if (el.type === Fragment) return labelCells(el.props.children, labels);
+    if (el.type !== "tr") return el;
+    let col = 0;
+    const cells = Children.map(el.props.children, (td) => {
+      if (!isValidElement(td) || td.type !== "td") return td;
+      const props = td.props as { colSpan?: number; "data-label"?: string };
+      const label = props["data-label"] ?? labels[col] ?? "";
+      col += props.colSpan ?? 1;
+      return cloneElement(td as React.ReactElement<Record<string, unknown>>, { "data-label": label });
+    });
+    return cloneElement(el, {}, cells);
+  });
+}
+
+/**
+ * ตารางของทั้งระบบ — ไม่มีแถบเลื่อนแนวนอน
+ * คอม: กว้างพอดีกรอบ ข้อความยาวขึ้นบรรทัดใหม่ · มือถือ (<768px): แต่ละแถวเป็นการ์ด แสดงชื่อคอลัมน์คู่กับค่า
+ * ช่องที่หัวคอลัมน์ว่าง (เช่น ปุ่ม) จะแสดงเต็มบรรทัดไม่มีป้าย
+ */
+export function Table({ head, children, empty, className }: { head: React.ReactNode[]; children: React.ReactNode; empty?: boolean; className?: string }) {
+  const labels = head.map((h) => (typeof h === "string" ? h : ""));
   return (
-    <div className="overflow-x-auto rounded-3xl border border-brand-200/80 bg-white shadow-card">
-      <table className="w-full min-w-max text-sm">
-        <thead className="bg-brand-50/80 text-left text-xs tracking-wide text-brand-700 uppercase">
+    <div className={cn("overflow-hidden rounded-3xl border border-brand-200/80 bg-white shadow-card", className)}>
+      <table className="rtable w-full text-sm">
+        <thead className="bg-brand-50/80 text-left text-xs tracking-wide text-brand-700">
           <tr>
             {head.map((h, i) => (
-              <th key={i} className="px-3 py-2.5 font-medium whitespace-nowrap">
+              <th key={i} className="px-3 py-2.5 align-bottom font-medium first:pl-4 last:pr-4">
                 {h}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-brand-100 [&_td]:px-3 [&_td]:py-3 [&_tr]:transition-colors [&_tr:hover]:bg-brand-50/50">
-          {children}
+        <tbody className="divide-y divide-brand-100 md:[&_td]:px-3 md:[&_td]:py-3 md:[&_td:first-child]:pl-4 md:[&_td:last-child]:pr-4 [&_tr]:transition-colors md:[&_tr:hover]:bg-brand-50/50">
+          {labelCells(children, labels)}
           {empty && (
             <tr>
-              <td colSpan={head.length} className="py-10! text-center text-stone-400">
+              <td colSpan={head.length} data-label="" className="rtable-empty py-10! text-center text-stone-400">
                 ยังไม่มีข้อมูล
               </td>
             </tr>

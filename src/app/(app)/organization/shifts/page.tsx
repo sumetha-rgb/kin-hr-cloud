@@ -16,7 +16,7 @@ export default async function ShiftsPage({ searchParams }: { searchParams: Promi
   const editDays = new Set((edit?.workDays ?? "1,2,3,4,5").split(","));
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
+    <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
       <div>
         <Flash ok={sp.ok} error={sp.error} />
         <Table head={["ชื่อกะ", "เวลา", "พัก", "สายได้", "วันทำงาน", ""]} empty={!rows.length}>

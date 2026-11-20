@@ -55,46 +55,46 @@ export default async function LogsPage({ searchParams }: { searchParams: Promise
           <FilterSelect param="employee" value={sp.employee ?? ""} placeholder="พนักงานทุกคน" options={empOptions} className="min-w-52 flex-1 sm:flex-none" />
           <span className="ml-auto hidden px-3 text-sm text-stone-500 md:inline">{rows.length} รายการ</span>
         </FilterBar>
-        <Table head={["เวลา", "พนักงาน", "ประเภท", "วิธี", "สาขา / ระยะ", "GPS", "หมายเหตุ", ""]} empty={!rows.length}>
+        {/* 8 ค่าเดิม รวมเหลือ 5 คอลัมน์ให้พอดีกรอบ (ไม่ต้องเลื่อนซ้าย-ขวา) */}
+        <Table head={["เวลา", "พนักงาน", "ประเภท", "สถานที่", ""]} empty={!rows.length}>
           {rows.map(({ l, e, branch, by }) => (
             <tr key={l.id}>
-              <td className="whitespace-nowrap tabular-nums">
-                {!r.single && <span className="mr-1.5 text-xs text-stone-500">{fmtDate(l.punchedAt)}</span>}
-                {bkkTimeStr(l.punchedAt)}
+              <td>
+                <span className="block text-base font-semibold text-brand-900 tabular-nums">{bkkTimeStr(l.punchedAt)}</span>
+                {!r.single && <span className="block text-xs font-normal text-stone-500">{fmtDate(l.punchedAt)}</span>}
               </td>
               <td>
-                {fullName(e)} <span className="text-xs text-stone-400">{e.code}</span>
+                <span className="block">{fullName(e)}</span>
+                <span className="block text-xs text-stone-400">{e.code}</span>
               </td>
               <td>
-                <Badge tone={l.type === "in" ? "green" : "red"}>{l.type === "in" ? "เข้า" : "ออก"}</Badge>
+                <span className="flex flex-wrap justify-end gap-1 md:justify-start">
+                  <Badge tone={l.type === "in" ? "green" : "red"}>{l.type === "in" ? "เข้า" : "ออก"}</Badge>
+                  {l.method === "biometric" ? (
+                    <Badge tone="blue">ลายนิ้วมือ</Badge>
+                  ) : (
+                    <Badge tone="amber">
+                      {l.method === "manual" ? "HR บันทึก" : "แก้ไขเวลา"}
+                      {by ? ` · ${by}` : ""}
+                    </Badge>
+                  )}
+                </span>
               </td>
               <td>
-                {l.method === "biometric" ? (
-                  <Badge tone="blue">ลายนิ้วมือ</Badge>
-                ) : (
-                  <Badge tone="amber">
-                    {l.method === "manual" ? "HR บันทึก" : "แก้ไขเวลา"}
-                    {by ? ` · ${by}` : ""}
-                  </Badge>
-                )}
+                <span className="block">
+                  {branch ?? <span className="text-amber-700">นอกสาขา</span>}
+                  {l.distanceM != null && <span className="text-xs text-stone-400"> · {Math.round(l.distanceM)} ม.</span>}
+                </span>
+                <span className="block text-xs text-stone-500">
+                  {l.latitude != null && (
+                    <a className="text-brand-600 underline underline-offset-2" target="_blank" href={`https://maps.google.com/?q=${l.latitude},${l.longitude}`}>
+                      ดูแผนที่ ±{Math.round(l.accuracyM ?? 0)} ม.
+                    </a>
+                  )}
+                  {l.note && <span className="ml-1.5">{l.note}</span>}
+                </span>
               </td>
-              <td>
-                {branch ?? "-"}
-                {l.distanceM != null && <span className="text-xs text-stone-400"> · {Math.round(l.distanceM)} ม.</span>}
-              </td>
-              <td className="text-xs">
-                {l.latitude != null ? (
-                  <a className="text-brand-600 underline" target="_blank" href={`https://maps.google.com/?q=${l.latitude},${l.longitude}`}>
-                    แผนที่ (±{Math.round(l.accuracyM ?? 0)}ม.)
-                  </a>
-                ) : (
-                  "-"
-                )}
-              </td>
-              <td className="max-w-48 truncate text-xs text-stone-500" title={l.note ?? ""}>
-                {l.note ?? ""}
-              </td>
-              <td>
+              <td className="text-right">
                 <form action={deletePunch}>
                   <input type="hidden" name="id" value={l.id} />
                   <input type="hidden" name="back" value={back} />
