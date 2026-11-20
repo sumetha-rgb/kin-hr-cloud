@@ -6,30 +6,11 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/util";
 import { Avatar } from "./avatar";
 import { KinLogo } from "./brand";
+import { Icon } from "./icons";
+
+export { Icon }; // ไฟล์เดิมหลายไฟล์ import Icon จากที่นี่
 
 export type NavItem = { href: string; label: string; sub?: string; icon: string; short?: string };
-
-const ICONS: Record<string, string> = {
-  home: "M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z",
-  finger: "M12 11v6m-4-4c0-2.2 1.8-4 4-4s4 1.8 4 4v1m-12-1a8 8 0 0 1 16 0v2M7 19a10 10 0 0 0 1-4",
-  org: "M4 21V7l8-4 8 4v14M9 21v-5h6v5M8 10h.01M12 10h.01M16 10h.01",
-  people: "M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1m20 0v-1a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8M9 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8",
-  clock: "M12 7v5l3 2m6-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0",
-  check: "M9 12l2 2 4-4M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2",
-  money: "M3 7h18v10H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M6 7V5h12v2",
-  chart: "M4 20V10m6 10V4m6 16v-7m4 7H2",
-  user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8",
-  menu: "M4 6h16M4 12h16M4 18h16",
-  shield: "M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6zM9 12l2 2 4-4",
-};
-
-export function Icon({ name, className = "size-5" }: { name: string; className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={cn("shrink-0", className)} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d={ICONS[name] ?? ICONS.home} />
-    </svg>
-  );
-}
 
 export function Sidebar({
   items,
@@ -104,7 +85,7 @@ export function Sidebar({
             <KinLogo size={42} />
           </Link>
           <button onClick={() => setOpen(false)} className="rounded-xl p-2 text-brand-700 hover:bg-brand-50 lg:hidden" aria-label="ปิดเมนู">
-            ✕
+            <Icon name="x" className="size-5" />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto">{nav}</div>

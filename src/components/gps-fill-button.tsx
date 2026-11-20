@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Icon } from "./icons";
 import { btn } from "./ui";
 
 /** เติมพิกัดปัจจุบันลงช่อง latitude/longitude ของฟอร์ม (ใช้ตอนตั้งค่าสาขา โดยยืนอยู่ที่สาขา) */
@@ -25,7 +26,8 @@ export function GpsFillButton({ latId, lngId }: { latId: string; lngId: string }
           );
         }}
       >
-        📍 ใช้ตำแหน่งปัจจุบัน
+        <Icon name="locate" className="size-[18px]" />
+        ใช้ตำแหน่งปัจจุบัน
       </button>
       <span className="text-xs text-stone-500">{msg}</span>
     </div>

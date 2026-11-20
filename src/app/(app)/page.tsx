@@ -4,8 +4,8 @@ import { db } from "@/db";
 import { attendanceLogs, branches, employeePhotos, employees, leaveTypes, payrollItems, payrollRuns, requests } from "@/db/schema";
 import { Avatar } from "@/components/avatar";
 import { BarChart, type BarDatum } from "@/components/bar-chart";
-import { Icon } from "@/components/sidebar";
-import { Badge, Card, DesktopOnly, Flash, MobileList, Stat, Table } from "@/components/ui";
+import { Icon } from "@/components/icons";
+import { Badge, Card, DesktopOnly, Flash, MobileList, MoreLink, Stat, Table } from "@/components/ui";
 import { approvableWhere } from "@/lib/approval";
 import { requireUser } from "@/lib/auth";
 import { loadAttendance } from "@/lib/attendance-data";
@@ -71,8 +71,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <Flash ok={sp.ok} error={sp.error} />
       {settings.announcement && (
         <div role="status" className="mb-5 flex items-start gap-3 rounded-3xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white p-4 shadow-card">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-lg" aria-hidden>
-            📢
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+            <Icon name="megaphone" className="size-5" />
           </span>
           <div className="min-w-0">
             <p className="text-xs font-medium tracking-wide text-amber-700">ประกาศจากฝ่ายบุคคล</p>
@@ -119,17 +119,21 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                   เข้า {lastIn ? `${bkkTimeStr(lastIn.punchedAt)} น.` : "—"} · ออก {lastOut ? `${bkkTimeStr(lastOut.punchedAt)} น.` : "—"}
                 </span>
               </span>
-              <span className="ml-auto text-2xl text-brand-400">›</span>
+              <Icon name="chevronRight" className="ml-auto size-6 text-brand-400" />
             </Link>
             <Link href="/requests" className="rounded-3xl bg-white/[.08] p-4 ring-1 ring-white/15 backdrop-blur transition hover:bg-white/[.12] sm:p-5">
               <span className="block text-sm text-brand-200/90">คำขอที่รออนุมัติ</span>
               <span className="mt-0.5 block text-[26px] font-semibold tabular-nums">{pendingMine.n} รายการ</span>
-              <span className="text-sm text-brand-200">ยื่นลา / OT / แก้เวลา ›</span>
+              <span className="inline-flex items-center gap-0.5 text-sm text-brand-200">
+                ยื่นลา / OT / แก้เวลา <Icon name="chevronRight" className="size-4" />
+              </span>
             </Link>
             <Link href="/payroll/my" className="rounded-3xl bg-white/[.08] p-4 ring-1 ring-white/15 backdrop-blur transition hover:bg-white/[.12] sm:p-5">
               <span className="block text-sm text-brand-200/90">สลิปล่าสุด {lastSlip ? fmtMonth(lastSlip.run.year, lastSlip.run.month) : ""}</span>
               <span className="mt-0.5 block text-[26px] font-semibold tabular-nums">{lastSlip ? `${fmtMoney(lastSlip.i.net)} ฿` : "—"}</span>
-              <span className="text-sm text-brand-200">ดูสลิปเงินเดือน ›</span>
+              <span className="inline-flex items-center gap-0.5 text-sm text-brand-200">
+                ดูสลิปเงินเดือน <Icon name="chevronRight" className="size-4" />
+              </span>
             </Link>
           </div>
         )}
@@ -143,9 +147,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             </span>
           }
           actions={
-            <Link href="/requests/inbox" className="text-sm font-medium text-brand-700">
-              ไปอนุมัติ ›
-            </Link>
+            <MoreLink href="/requests/inbox">ไปอนุมัติ</MoreLink>
           }
           className="mb-5"
         >
@@ -238,9 +240,7 @@ async function HrOverview({ today, from, to }: { today: string; from: Date; to: 
       <Card
         title="ลงเวลาล่าสุดวันนี้"
         actions={
-          <Link href="/attendance/board" className="text-sm font-medium text-brand-700">
-            ดูทั้งหมด ›
-          </Link>
+          <MoreLink href="/attendance/board">ดูทั้งหมด</MoreLink>
         }
         padded={false}
       >

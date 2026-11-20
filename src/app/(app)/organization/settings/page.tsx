@@ -1,3 +1,4 @@
+import { Icon } from "@/components/icons";
 import { SubmitButton } from "@/components/submit-button";
 import { Card, Checkbox, Field, Flash, Input, Textarea } from "@/components/ui";
 import { getSettings } from "@/lib/payroll-run";
@@ -56,8 +57,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               <Input name="ssoMaxBase" type="number" step="0.01" defaultValue={s.ssoMaxBase} />
             </Field>
           </div>
-          <p className="mt-2 text-xs text-amber-700">
-            ⚠️ ตรวจสอบเพดานค่าจ้างตามประกาศสำนักงานประกันสังคมฉบับล่าสุดก่อนคำนวณเงินเดือน (มีแผนปรับเพดานขึ้นเป็นขั้น ๆ)
+          <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700">
+            <Icon name="alert" className="size-4" />
+            ตรวจสอบเพดานค่าจ้างตามประกาศสำนักงานประกันสังคมฉบับล่าสุดก่อนคำนวณเงินเดือน (มีแผนปรับเพดานขึ้นเป็นขั้น ๆ)
           </p>
         </Card>
         <Card title="การลงเวลาและการหักเงิน">

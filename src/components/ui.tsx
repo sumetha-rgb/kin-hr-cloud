@@ -1,5 +1,16 @@
 import Link from "next/link";
 import { cn } from "@/lib/util";
+import { Icon } from "./icons";
+
+/** ลิงก์ข้อความ + ลูกศรไอคอน เช่น "ดูทั้งหมด ›" (ใช้แทนตัวอักษร ›) */
+export function MoreLink({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) {
+  return (
+    <Link href={href} className={cn("inline-flex items-center gap-0.5 text-sm font-medium text-brand-700 hover:text-brand-900", className)}>
+      {children}
+      <Icon name="chevronRight" className="size-4" />
+    </Link>
+  );
+}
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: React.ReactNode }) {
   return (
@@ -211,12 +222,12 @@ export function Flash({ ok, error }: { ok?: string; error?: string }) {
     <div
       role={error ? "alert" : "status"}
       className={cn(
-        "animate-in mb-4 rounded-2xl border px-4 py-3 text-[15px] shadow-card sm:text-sm",
+        "animate-in mb-4 flex items-start gap-2.5 rounded-2xl border px-4 py-3 text-[15px] shadow-card sm:text-sm",
         error ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-200 bg-emerald-50 text-emerald-800",
       )}
     >
-      {error ? "⚠️ " : "✅ "}
-      {error ?? ok}
+      <Icon name={error ? "alert" : "checkCircle"} className="mt-px size-5 sm:size-[18px]" />
+      <span>{error ?? ok}</span>
     </div>
   );
 }

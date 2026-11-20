@@ -6,7 +6,8 @@ import { lockedUsernames } from "@/lib/lockout";
 import { Avatar } from "@/components/avatar";
 import { FilterBar, FilterSelect } from "@/components/filter-bar";
 import { SubmitButton } from "@/components/submit-button";
-import { Badge, DesktopOnly, Flash, MobileCard, MobileList, Table } from "@/components/ui";
+import { Icon } from "@/components/icons";
+import { Badge, DesktopOnly, Flash, MobileCard, MobileList, MoreLink, Table } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
 import { fmtDateTime } from "@/lib/time";
 import { fullName, ROLE_LABEL } from "@/lib/util";
@@ -87,8 +88,9 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
         </form>
       )}
       {r.e && (
-        <Link href={`/personnel/${r.e.id}`} className="inline-flex min-h-9 items-center rounded-full border border-brand-200 bg-white px-3 text-xs font-medium text-brand-800 hover:bg-brand-50">
-          แก้ไข ›
+        <Link href={`/personnel/${r.e.id}`} className="inline-flex min-h-9 items-center gap-0.5 rounded-full border border-brand-200 bg-white pr-2 pl-3 text-xs font-medium text-brand-800 hover:bg-brand-50">
+          แก้ไข
+          <Icon name="chevronRight" className="size-3.5" />
         </Link>
       )}
     </div>
@@ -204,9 +206,7 @@ async function NoAccount({ q }: { q?: string }) {
             <td>{e.code}</td>
             <td>{fullName(e)}</td>
             <td className="text-right">
-              <Link href={`/personnel/${e.id}`} className="text-sm font-medium text-brand-600">
-                สร้างบัญชี ›
-              </Link>
+              <MoreLink href={`/personnel/${e.id}`}>สร้างบัญชี</MoreLink>
             </td>
           </tr>
         ))}

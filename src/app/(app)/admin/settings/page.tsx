@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Icon } from "@/components/icons";
 import { SubmitButton } from "@/components/submit-button";
 import { Card, Flash, Textarea } from "@/components/ui";
 import { LOCK_MAX, LOCK_MIN } from "@/lib/lockout";
@@ -15,7 +16,12 @@ function Toggle({ name, label, desc, defaultChecked, danger }: { name: string; l
       <span className="min-w-0">
         <span className="block font-medium text-brand-900">{label}</span>
         <span className="mt-0.5 block text-sm text-stone-500">{desc}</span>
-        {danger && <span className="mt-1.5 block text-xs font-medium text-rose-700">⚠️ {danger}</span>}
+        {danger && (
+          <span className="mt-1.5 flex items-start gap-1.5 text-xs font-medium text-rose-700">
+            <Icon name="alert" className="size-4" />
+            {danger}
+          </span>
+        )}
       </span>
       <span className="relative mt-0.5 inline-flex shrink-0">
         <input type="checkbox" name={name} defaultChecked={defaultChecked} className="peer sr-only" />
@@ -79,7 +85,7 @@ export default async function SystemSettings({ searchParams }: { searchParams: P
             ["/organization/leave-types", "ประเภทการลาและโควตา"],
           ].map(([href, label]) => (
             <Link key={href} href={href} className="flex items-center justify-between rounded-2xl border border-brand-200 px-4 py-3 font-medium text-brand-800 transition hover:bg-brand-50">
-              {label} <span className="text-brand-400">›</span>
+              {label} <Icon name="chevronRight" className="size-4 text-brand-400" />
             </Link>
           ))}
         </div>

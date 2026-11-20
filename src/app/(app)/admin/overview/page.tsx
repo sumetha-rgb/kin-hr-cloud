@@ -2,7 +2,7 @@ import { and, count, countDistinct, desc, eq, gte, isNull, ne, sql } from "drizz
 import Link from "next/link";
 import { db } from "@/db";
 import { auditLogs, branches, employeePhotos, employees, holidays, users, webauthnCredentials } from "@/db/schema";
-import { Icon } from "@/components/sidebar";
+import { Icon } from "@/components/icons";
 import { Card, Stat } from "@/components/ui";
 import { lockedUsernames, LOCK_MAX, LOCK_MIN } from "@/lib/lockout";
 import { getSettings } from "@/lib/payroll-run";
@@ -150,7 +150,7 @@ export default async function AdminOverview() {
       <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
         <Card
           title="ความพร้อมก่อนใช้งานจริง"
-          subtitle={todo.length ? `เหลือ ${todo.length} รายการที่ควรจัดการ` : "เรียบร้อยครบทุกข้อ 🎉"}
+          subtitle={todo.length ? `เหลือ ${todo.length} รายการที่ควรจัดการ` : "เรียบร้อยครบทุกข้อ"}
           actions={<span className="text-sm font-semibold text-brand-700 tabular-nums">{pct}%</span>}
         >
           <div className="mb-4 h-2 overflow-hidden rounded-full bg-brand-100">
@@ -171,15 +171,16 @@ export default async function AdminOverview() {
                     c.ok ? "bg-emerald-500" : c.level === "danger" ? "bg-rose-500" : c.level === "warn" ? "bg-amber-500" : "bg-brand-400",
                   )}
                 >
-                  {c.ok ? "✓" : "!"}
+                  <Icon name={c.ok ? "tick" : "alert"} className="size-3.5" strokeWidth={c.ok ? 3 : 2.4} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className={cn("block text-[15px] font-medium sm:text-sm", c.ok ? "text-emerald-800" : "text-brand-900")}>{c.title}</span>
                   {!c.ok && <span className="mt-0.5 block text-sm text-stone-600">{c.detail}</span>}
                 </span>
                 {!c.ok && c.href && (
-                  <Link href={c.href} className="shrink-0 rounded-full border border-brand-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-800 shadow-sm hover:bg-brand-50">
-                    {c.cta} ›
+                  <Link href={c.href} className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-brand-200 bg-white py-1.5 pr-2 pl-3 text-sm font-medium text-brand-800 shadow-sm hover:bg-brand-50">
+                    {c.cta}
+                    <Icon name="chevronRight" className="size-4" />
                   </Link>
                 )}
               </li>

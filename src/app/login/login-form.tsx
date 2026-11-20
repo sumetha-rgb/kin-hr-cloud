@@ -2,6 +2,7 @@
 
 import { startTransition, useActionState, useState } from "react";
 import { login } from "./actions";
+import { Icon } from "@/components/icons";
 import { cn } from "@/lib/util";
 
 export type DemoAccount = { key: "hr" | "emp"; username: string; password: string; label: string; desc: string };
@@ -72,7 +73,7 @@ export function LoginForm({ next, demo }: { next: string; demo: DemoAccount[] })
 
       {state?.error && (
         <p role="alert" className="animate-in flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          <span aria-hidden>⚠️</span>
+          <Icon name="alert" className="mt-px size-[18px]" />
           {state.error}
         </p>
       )}
@@ -87,7 +88,10 @@ export function LoginForm({ next, demo }: { next: string; demo: DemoAccount[] })
             กำลังเข้าสู่ระบบ…
           </>
         ) : (
-          <>เข้าสู่ระบบ →</>
+          <>
+            เข้าสู่ระบบ
+            <Icon name="arrowRight" className="size-5" />
+          </>
         )}
       </button>
 

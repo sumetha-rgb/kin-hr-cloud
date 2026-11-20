@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/util";
+import { Icon } from "./icons";
 
 type Platform = "ios" | "android";
 type BeforeInstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
@@ -136,7 +137,7 @@ export function InstallApp({ className }: { className?: string }) {
           <span className="block font-semibold text-brand-900">ติดตั้งแอป KIN HR บนมือถือ</span>
           <span className="block text-xs text-stone-500">เปิดลงเวลาได้จากหน้าจอโฮม เหมือนแอปทั่วไป · iPhone / Android</span>
         </span>
-        <span className="text-xl text-brand-400">›</span>
+        <Icon name="chevronRight" className="size-5 text-brand-400" />
       </button>
 
       {/* portal ไปที่ body — ถ้าอยู่ใต้กล่องที่มี animation/transform, position:fixed จะไม่เต็มจอ */}
@@ -155,7 +156,7 @@ export function InstallApp({ className }: { className?: string }) {
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-brand-900">ติดตั้งแอปบนมือถือ</h2>
                 <button type="button" onClick={() => setOpen(false)} className="flex size-9 items-center justify-center rounded-full text-brand-700 hover:bg-brand-50" aria-label="ปิด">
-                  ✕
+                  <Icon name="x" className="size-5" />
                 </button>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-1 rounded-full bg-brand-50 p-1 ring-1 ring-brand-100">

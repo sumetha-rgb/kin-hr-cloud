@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import { redirect } from "next/navigation";
+import { Icon, type IconName } from "@/components/icons";
 import { InstallApp } from "@/components/install-app";
 import { getCurrentUser } from "@/lib/auth";
 import { getSettings } from "@/lib/payroll-run";
@@ -13,10 +14,10 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
   { key: "emp", username: "demo2", password: "1234", label: "พนักงาน", desc: "ลงเวลา · ยื่นลา" },
 ];
 
-const FEATURES = [
-  { icon: "👆", t: "สแกนนิ้ว / Face ID" },
-  { icon: "📝", t: "ลา · OT ออนไลน์" },
-  { icon: "💰", t: "สลิปเงินเดือน" },
+const FEATURES: Array<{ icon: IconName; t: string }> = [
+  { icon: "finger", t: "สแกนนิ้ว / Face ID" },
+  { icon: "document", t: "ลา · OT ออนไลน์" },
+  { icon: "money", t: "สลิปเงินเดือน" },
 ];
 
 /** ภาพตัวอย่างหน้าจอลงเวลาบนมือถือ (วาดด้วย HTML ล้วน ไม่ต้องโหลดรูป) */
@@ -30,17 +31,21 @@ function PhonePreview() {
           <div className="px-5 pt-5 pb-6 text-center">
             <p className="text-[11px] text-brand-600">วันพฤหัสบดี 19 พ.ย. 2569</p>
             <p className="mt-1 text-[40px] leading-none font-semibold tracking-tight text-brand-900 tabular-nums">08:02</p>
-            <span className="mt-3 inline-block rounded-full bg-emerald-50 px-3 py-1 text-[11px] text-emerald-700">📍 อยู่ในพื้นที่ KIN ลาดพร้าว 71</span>
+            <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-[11px] text-emerald-700">
+              <Icon name="pin" className="size-3.5" />
+              อยู่ในพื้นที่ KIN ลาดพร้าว 71
+            </span>
             <div className="mt-6 flex justify-center">
-              <span className="relative flex size-24 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-700 text-white shadow-lg shadow-brand-700/30">
-                <span className="absolute inset-0 animate-ping rounded-full bg-brand-400/30 [animation-duration:2.4s]" />
-                <svg viewBox="0 0 24 24" className="relative size-12" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" aria-hidden>
-                  <path d="M12 11v6m-4-4c0-2.2 1.8-4 4-4s4 1.8 4 4v1m-12-1a8 8 0 0 1 16 0v2M7 19a10 10 0 0 0 1-4" />
-                </svg>
+              <span className="relative flex size-28 flex-col items-center justify-center gap-1 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-lg shadow-emerald-700/30">
+                <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400/25 [animation-duration:2.6s]" />
+                <Icon name="finger" className="relative size-10" strokeWidth={1.5} />
+                <span className="relative text-[12px] font-semibold">สแกนเข้างาน</span>
               </span>
             </div>
-            <p className="mt-4 text-sm font-semibold text-brand-900">แตะเพื่อสแกนเข้างาน</p>
-            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[12px] font-medium text-emerald-700">ลงเวลาเข้าสำเร็จ 08:02 น. ✅</div>
+            <div className="mt-6 flex items-center justify-center gap-1.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[12px] font-medium text-emerald-700">
+              <Icon name="checkCircle" className="size-4" />
+              ลงเวลาเข้างานสำเร็จ 08:02 น.
+            </div>
           </div>
         </div>
       </div>
@@ -92,8 +97,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 
         <footer className="relative flex flex-wrap justify-center gap-2 lg:justify-start">
           {FEATURES.map((f) => (
-            <span key={f.t} className="rounded-full bg-brand-50 px-3 py-1 text-xs text-brand-700 ring-1 ring-brand-100">
-              {f.icon} {f.t}
+            <span key={f.t} className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1.5 text-xs text-brand-700 ring-1 ring-brand-100">
+              <Icon name={f.icon} className="size-3.5 text-brand-500" />
+              {f.t}
             </span>
           ))}
         </footer>

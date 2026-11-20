@@ -7,6 +7,7 @@ import { attendanceLogs, branches, employees, webauthnCredentials } from "@/db/s
 import { getCurrentUser } from "@/lib/auth";
 import { nearestBranch } from "@/lib/geo";
 import { getSettings } from "@/lib/payroll-run";
+import { lastRecentPunch, nextPunchType } from "@/lib/punch";
 import { takeChallenge } from "@/lib/session";
 import { fromB64url, getRp } from "@/lib/webauthn";
 
@@ -27,6 +28,12 @@ export async function POST(req: Request) {
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return err("ข้อมูลไม่ครบ (ต้องเปิด GPS)");
   const b = parsed.data;
+
+  // 0) ลำดับต้องถูก: ต้องสแกนเข้างานก่อนจึงสแกนออกได้ และสแกนเข้าซ้ำระหว่างยังไม่ออกไม่ได้
+  const expected = nextPunchType(await lastRecentPunch(user.employeeId));
+  if (b.type !== expected) {
+    return err(b.type === "out" ? "ยังไม่ได้สแกนเข้างาน — กรุณาสแกนเข้างานก่อน" : "คุณสแกนเข้างานแล้ว — ครั้งถัดไปให้สแกนออกงาน", 409);
+  }
 
   // 1) ยืนยันลายนิ้วมือ (WebAuthn, userVerification = required)
   const challenge = await takeChallenge("punch", user.id);

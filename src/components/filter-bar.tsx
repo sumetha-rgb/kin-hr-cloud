@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { addDays, fmtDate, isoWeekday, monthRange } from "@/lib/time";
+import { Icon } from "./icons";
 import { cn } from "@/lib/util";
 
 /** สร้าง URL ใหม่โดยคง query เดิมไว้ แล้วเปลี่ยนเฉพาะค่าที่ส่งมา (ค่าว่าง = ลบ) */
@@ -217,13 +218,13 @@ function RangeCalendar({ from, to, today, maxDays, onPick }: { from: string; to:
       <div className="flex-1 p-4">
         <div className="mb-3 flex items-center justify-between">
           <button type="button" onClick={() => setView(shiftMonth(y, m, -1))} className="flex size-9 items-center justify-center rounded-full text-brand-700 hover:bg-brand-50" aria-label="เดือนก่อน">
-            ‹
+            <Icon name="chevronLeft" className="size-5" />
           </button>
           <span className="font-semibold text-brand-900">
             {TH_MONTHS[m - 1]} {y + 543}
           </span>
           <button type="button" onClick={() => setView(shiftMonth(y, m, 1))} className="flex size-9 items-center justify-center rounded-full text-brand-700 hover:bg-brand-50" aria-label="เดือนถัดไป">
-            ›
+            <Icon name="chevronRight" className="size-5" />
           </button>
         </div>
         <div className="grid grid-cols-7 text-center text-xs text-stone-400">

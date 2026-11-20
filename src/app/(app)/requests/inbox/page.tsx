@@ -2,6 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { employees, leaveTypes, requests } from "@/db/schema";
+import { Icon } from "@/components/icons";
 import { SubmitButton } from "@/components/submit-button";
 import { Flash, Input } from "@/components/ui";
 import { approvableWhere } from "@/lib/approval";
@@ -29,7 +30,12 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
     <>
       <Flash ok={sp.ok} error={sp.error} />
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-stone-300 bg-white p-10 text-center text-stone-400">ไม่มีคำขอรออนุมัติ 🎉</div>
+        <div className="flex flex-col items-center gap-2 rounded-3xl border border-dashed border-brand-200 bg-white p-10 text-center text-stone-500">
+          <span className="flex size-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+            <Icon name="tick" className="size-5" strokeWidth={2.4} />
+          </span>
+          ไม่มีคำขอรออนุมัติ
+        </div>
       ) : (
         <div className="space-y-3">
           {rows.map(({ r, e, leaveName }) => (

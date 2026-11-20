@@ -2,6 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { db } from "@/db";
 import { payrollItems, payrollRuns } from "@/db/schema";
+import { Icon } from "@/components/icons";
 import { DesktopOnly, MobileCard, MobileList, PageHeader, Table } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { fmtDate, fmtMonth } from "@/lib/time";
@@ -27,7 +28,9 @@ export default async function MySlips() {
           <MobileCard key={i.id} href={`/payroll/${run.id}/slip/${i.employeeId}`}>
             <div className="flex items-center justify-between">
               <span className="font-semibold text-brand-900">{fmtMonth(run.year, run.month)}</span>
-              <span className="text-sm text-brand-700">ดูสลิป ›</span>
+              <span className="inline-flex items-center gap-0.5 text-sm text-brand-700">
+                ดูสลิป <Icon name="chevronRight" className="size-4" />
+              </span>
             </div>
             <div className="mt-1 text-[26px] font-semibold text-brand-900 tabular-nums">{fmtMoney(i.net)} ฿</div>
             <div className="text-sm text-stone-500">

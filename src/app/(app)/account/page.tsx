@@ -1,12 +1,11 @@
 import { eq } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import Link from "next/link";
 import { db } from "@/db";
 import { branches, departments, employees, positions, shifts, webauthnCredentials } from "@/db/schema";
 import { Avatar } from "@/components/avatar";
 import { PhotoUploader } from "@/components/photo-uploader";
 import { SubmitButton } from "@/components/submit-button";
-import { Badge, Card, Field, Flash, Input, InfoRow, Textarea } from "@/components/ui";
+import { Badge, Card, Field, Flash, Input, InfoRow, MoreLink, Textarea } from "@/components/ui";
 import { isHR, requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/payroll-run";
 import { fmtDate, fmtDateTime } from "@/lib/time";
@@ -147,9 +146,9 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
               {creds.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-brand-300 bg-brand-50/60 p-4 text-center text-sm text-brand-800">
                   ยังไม่ได้ลงทะเบียนมือถือ
-                  <Link href="/checkin" className="mt-2 block font-medium text-brand-600 underline underline-offset-4">
-                    ลงทะเบียนบนมือถือของคุณ ›
-                  </Link>
+                  <MoreLink href="/checkin" className="mt-2">
+                    ลงทะเบียนบนมือถือของคุณ
+                  </MoreLink>
                 </div>
               ) : (
                 <ul className="space-y-2 text-sm">
