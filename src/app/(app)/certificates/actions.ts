@@ -10,7 +10,7 @@ import { isHR, requireUser } from "@/lib/auth";
 import { parseForm } from "@/lib/form";
 import { hrUserIds, notify, userIdsOfEmployees } from "@/lib/notify";
 import { bkkDateStr } from "@/lib/time";
-import { CERT_LABEL } from "@/lib/certificate";
+import { buildCertSnapshot, CERT_LABEL } from "@/lib/certificate";
 import { withMsg } from "@/lib/util";
 
 const P = "/certificates";
@@ -79,9 +79,11 @@ export async function decideCertificate(fd: FormData) {
       .where(and(isNotNull(certificateRequests.docNo), gte(certificateRequests.decidedAt, new Date(`${year}-01-01T00:00:00+07:00`))));
     docNo = `${year + 543}/${String(n + 1).padStart(4, "0")}`;
   }
+  // เก็บข้อมูล ณ วันออก — ขึ้นเงินเดือน/ย้ายตำแหน่งภายหลัง ฉบับนี้ไม่เปลี่ยน
+  const snapshot = decision === "approved" ? await buildCertSnapshot(req.employeeId, u.id) : null;
   const done = await db
     .update(certificateRequests)
-    .set({ status: decision, decidedBy: u.id, decidedAt: new Date(), decisionNote: note, docNo })
+    .set({ status: decision, decidedBy: u.id, decidedAt: new Date(), decisionNote: note, docNo, snapshot })
     .where(and(eq(certificateRequests.id, id), eq(certificateRequests.status, "pending")))
     .returning({ id: certificateRequests.id });
   if (!done.length) return fail("คำขอนี้ถูกดำเนินการไปแล้ว");

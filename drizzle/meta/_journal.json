@@ -64,6 +64,13 @@
       "when": 1795162075469,
       "tag": "0008_employment_contracts",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795169926489,
+      "tag": "0009_cert_snapshot",
+      "breakpoints": true
     }
   ]
 }

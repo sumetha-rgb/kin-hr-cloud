@@ -35,6 +35,8 @@ export default async function CertificateDoc({ params, searchParams }: { params:
   const pendingPreview = row?.c.status === "pending" && hr;
   if (!row || (row.c.status !== "approved" && !pendingPreview) || (!hr && row.c.employeeId !== u.employeeId)) notFound();
   const { c, e } = row;
+  // ฉบับที่ออกแล้วใช้ข้อมูล ณ วันออก · ตัวอย่างก่อนอนุมัติใช้ข้อมูลปัจจุบัน
+  const snap = c.status === "approved" ? c.snapshot : null;
   const [company, sp] = await Promise.all([getSettings(), searchParams]);
 
   return (
@@ -74,15 +76,15 @@ export default async function CertificateDoc({ params, searchParams }: { params:
       )}
 
       <CertificateBody
-        company={company}
-        e={e}
-        pos={row.pos}
-        dept={row.dept}
+        company={snap?.company ?? company}
+        e={snap?.e ?? e}
+        pos={snap ? snap.pos : row.pos}
+        dept={snap ? snap.dept : row.dept}
         kind={c.kind}
         purpose={c.purpose}
         docNo={c.docNo}
         issued={c.decidedAt ?? new Date()}
-        signerName={row.signer ? fullName(row.signer) : pendingPreview ? (u.displayName ?? undefined) : undefined}
+        signerName={snap ? (snap.signerName ?? undefined) : row.signer ? fullName(row.signer) : pendingPreview ? (u.displayName ?? undefined) : undefined}
         preview={pendingPreview ? "ตัวอย่าง" : undefined}
       />
     </div>

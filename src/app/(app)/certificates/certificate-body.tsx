@@ -1,7 +1,6 @@
-import type { Employee } from "@/db/schema";
 import { DocPaper, Letterhead, SignLine } from "@/components/document";
 import { bahtText } from "@/lib/bahttext";
-import { CERT_LABEL } from "@/lib/certificate";
+import { CERT_LABEL, type CertSnapshot } from "@/lib/certificate";
 import { fmtDateLong } from "@/lib/time";
 import { cn, fmtMoney, fullName } from "@/lib/util";
 
@@ -26,7 +25,7 @@ export function CertificateBody({
   className,
 }: {
   company: { name: string; address: string | null; taxId: string | null };
-  e: Employee;
+  e: CertSnapshot["e"];
   pos: string | null;
   dept: string | null;
   kind: "employment" | "salary";

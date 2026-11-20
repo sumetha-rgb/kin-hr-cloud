@@ -511,6 +511,25 @@ export const certificateRequests = pgTable(
     decidedAt: timestamp("decided_at", { withTimezone: true }),
     decisionNote: text("decision_note"),
     docNo: text("doc_no"), // เลขที่หนังสือ (ออกตอนอนุมัติ)
+    // ข้อมูล ณ วันออกหนังสือ — ฉบับที่ออกแล้วไม่เปลี่ยนตามข้อมูลพนักงานภายหลัง
+    snapshot: jsonb("snapshot").$type<{
+      e: {
+        prefix: string | null;
+        firstName: string;
+        lastName: string;
+        nationalId: string | null;
+        status: string;
+        startDate: string;
+        endDate: string | null;
+        payType: string;
+        baseSalary: string;
+        monthlyAllowance: string;
+      };
+      pos: string | null;
+      dept: string | null;
+      company: { name: string; address: string | null; taxId: string | null };
+      signerName: string | null;
+    }>(),
     createdAt: createdAt(),
   },
   (t) => [index("cert_employee_idx").on(t.employeeId)],
