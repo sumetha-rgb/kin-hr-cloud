@@ -10,7 +10,8 @@ import { employeePhotos, employees, users } from "@/db/schema";
 import { audit } from "@/lib/audit";
 import { isHR, requireUser } from "@/lib/auth";
 import { parseForm } from "@/lib/form";
-import { getSettings } from "@/lib/payroll-run";
+import { notify, userIdsOfEmployees } from "@/lib/notify";
+import { bkkDateStr, fmtDate } from "@/lib/time";
 import { withMsg } from "@/lib/util";
 
 export async function changePassword(fd: FormData) {
@@ -23,7 +24,10 @@ export async function changePassword(fd: FormData) {
   if (next !== confirm) redirect(withMsg(P, { error: "ยืนยันรหัสผ่านไม่ตรงกัน" }));
   const [row] = await db.select().from(users).where(eq(users.id, u.id));
   if (!row || !(await bcrypt.compare(current, row.passwordHash))) redirect(withMsg(P, { error: "รหัสผ่านปัจจุบันไม่ถูกต้อง" }));
-  await db.update(users).set({ passwordHash: await bcrypt.hash(next, 12) }).where(eq(users.id, u.id));
+  await db
+    .update(users)
+    .set({ passwordHash: await bcrypt.hash(next, 12) })
+    .where(eq(users.id, u.id));
   await audit(u.id, "change_password", "user", u.id);
   redirect(withMsg(P, { ok: "เปลี่ยนรหัสผ่านแล้ว" }));
 }
@@ -44,7 +48,6 @@ export async function saveMyProfile(fd: FormData) {
   const u = await requireUser();
   const P = "/account";
   if (!u.employeeId) redirect(withMsg(P, { error: "บัญชีนี้ไม่ได้ผูกกับพนักงาน" }));
-  if (!(await getSettings()).selfProfileEdit) redirect(withMsg(P, { error: "ฝ่ายบุคคลปิดการแก้ไขโปรไฟล์ด้วยตนเอง — กรุณาติดต่อ HR" }));
   const r = parseForm(profileSchema, fd);
   if (!r.ok) redirect(withMsg(P, { error: r.error }));
   const values = Object.fromEntries(Object.entries(r.data).map(([k, v]) => [k, v ?? null]));
@@ -62,7 +65,6 @@ export async function savePhoto(fd: FormData) {
   const back = String(fd.get("back") ?? "/account");
   const P = back.startsWith("/") ? back : "/account";
   if (!empId || (empId !== u.employeeId && !isHR(u))) redirect(withMsg(P, { error: "ไม่มีสิทธิ์แก้รูปของพนักงานคนนี้" }));
-  if (!isHR(u) && !(await getSettings()).selfProfileEdit) redirect(withMsg(P, { error: "ฝ่ายบุคคลปิดการแก้ไขโปรไฟล์ด้วยตนเอง — กรุณาติดต่อ HR" }));
 
   if (fd.get("remove") === "1") {
     await db.delete(employeePhotos).where(eq(employeePhotos.employeeId, empId));
@@ -81,4 +83,33 @@ export async function savePhoto(fd: FormData) {
   }
   revalidatePath("/", "layout");
   redirect(withMsg(P, { ok: fd.get("remove") === "1" ? "ลบรูปโปรไฟล์แล้ว" : "อัปเดตรูปโปรไฟล์แล้ว" }));
+}
+
+/** หัวหน้าตั้งผู้อนุมัติแทนระหว่างลา (ล้างค่า = ยกเลิก) */
+export async function setActingApprover(fd: FormData) {
+  const u = await requireUser();
+  const P = "/account";
+  if (!u.employeeId) redirect(withMsg(P, { error: "บัญชีนี้ไม่ได้ผูกกับพนักงาน" }));
+  const actingId = Number(fd.get("actingApproverId")) || null;
+  const until = String(fd.get("actingUntil") ?? "") || null;
+  if (actingId) {
+    if (actingId === u.employeeId) redirect(withMsg(P, { error: "เลือกคนอื่นที่จะอนุมัติแทน" }));
+    if (!until || until < bkkDateStr()) redirect(withMsg(P, { error: "ระบุวันสุดท้ายที่ให้อนุมัติแทน (ตั้งแต่วันนี้เป็นต้นไป)" }));
+    const [acting] = await db.select({ role: users.role }).from(users).where(eq(users.employeeId, actingId));
+    if (!acting || acting.role === "employee") redirect(withMsg(P, { error: "ผู้อนุมัติแทนต้องเป็นหัวหน้างานหรือ HR" }));
+  }
+  await db
+    .update(employees)
+    .set({ actingApproverId: actingId, actingUntil: actingId ? until : null })
+    .where(eq(employees.id, u.employeeId));
+  await audit(u.id, actingId ? "update" : "delete", "acting_approver", u.employeeId, { actingId, until });
+  if (actingId) {
+    await notify([...(await userIdsOfEmployees([actingId])).values()], {
+      kind: "system",
+      title: `คุณได้รับมอบหมายให้อนุมัติคำขอแทน ${u.displayName}`,
+      body: `ถึงวันที่ ${fmtDate(until)} · คำขอของลูกทีมจะเข้ามาที่เมนู อนุมัติคำขอ`,
+      href: "/requests/inbox",
+    });
+  }
+  redirect(withMsg(P, { ok: actingId ? `ตั้งผู้อนุมัติแทนถึงวันที่ ${fmtDate(until)} แล้ว` : "ยกเลิกผู้อนุมัติแทนแล้ว" }));
 }

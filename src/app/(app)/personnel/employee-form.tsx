@@ -58,9 +58,29 @@ export async function EmployeeForm({ employee: e, suggestedCode }: { employee?: 
           <Field label="เบอร์ผู้ติดต่อฉุกเฉิน">
             <Input name="emergencyPhone" type="tel" defaultValue={e?.emergencyPhone ?? ""} />
           </Field>
-          <Field label="ที่อยู่ปัจจุบัน" className="sm:col-span-2 lg:col-span-4">
+          <Field label="ที่อยู่ปัจจุบัน (บรรทัดเดียว)" hint="ใช้แสดงในโปรไฟล์ — ช่องแยกด้านล่างใช้ในสัญญาจ้าง" className="sm:col-span-2 lg:col-span-4">
             <Textarea name="address" rows={2} defaultValue={e?.address ?? ""} />
           </Field>
+          <div className="grid gap-3 rounded-2xl bg-brand-50/50 p-3 sm:col-span-2 sm:grid-cols-3 lg:col-span-4 lg:grid-cols-5">
+            <p className="text-sm font-medium text-brand-800 sm:col-span-3 lg:col-span-5">ที่อยู่ตามบัตรประชาชน (แยกช่อง สำหรับสัญญาจ้าง)</p>
+            {(
+              [
+                ["addrNo", "เลขที่"],
+                ["addrMoo", "หมู่ที่"],
+                ["addrVillage", "หมู่บ้าน / คอนโด"],
+                ["addrSoi", "ตรอก / ซอย"],
+                ["addrRoad", "ถนน"],
+                ["addrSubdistrict", "ตำบล / แขวง"],
+                ["addrDistrict", "อำเภอ / เขต"],
+                ["addrProvince", "จังหวัด"],
+                ["addrZip", "รหัสไปรษณีย์"],
+              ] as const
+            ).map(([k, label]) => (
+              <Field key={k} label={label}>
+                <Input name={k} defaultValue={e?.[k] ?? ""} inputMode={k === "addrZip" ? "numeric" : undefined} maxLength={k === "addrZip" ? 5 : undefined} />
+              </Field>
+            ))}
+          </div>
           <Field label="แนะนำตัว" hint="แสดงบนโปรไฟล์ของพนักงาน" className="sm:col-span-2 lg:col-span-4">
             <Textarea name="bio" rows={2} maxLength={300} defaultValue={e?.bio ?? ""} />
           </Field>

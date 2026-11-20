@@ -10,11 +10,7 @@ import { fullName, ROLE_LABEL, STATUS_LABEL } from "@/lib/util";
 
 export const metadata = { title: "พนักงาน" };
 
-export default async function PersonnelPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string; branch?: string; status?: string; ok?: string; error?: string }>;
-}) {
+export default async function PersonnelPage({ searchParams }: { searchParams: Promise<{ q?: string; branch?: string; status?: string; ok?: string; error?: string }> }) {
   await requireRole("admin", "hr");
   const sp = await searchParams;
   const conds: SQL[] = [];
@@ -42,7 +38,18 @@ export default async function PersonnelPage({
 
   return (
     <>
-      <PageHeader title="พนักงาน" subtitle={`ข้อมูลพนักงานทั้งหมด ${rows.length} คน`} actions={<LinkButton href="/personnel/new">+ เพิ่มพนักงาน</LinkButton>} />
+      <PageHeader
+        title="พนักงาน"
+        subtitle={`ข้อมูลพนักงานทั้งหมด ${rows.length} คน`}
+        actions={
+          <>
+            <LinkButton href="/personnel/licenses" variant="secondary">
+              ใบอนุญาต / ใบรับรอง
+            </LinkButton>
+            <LinkButton href="/personnel/new">+ เพิ่มพนักงาน</LinkButton>
+          </>
+        }
+      />
       <Flash ok={sp.ok} error={sp.error} />
       <form className="mb-4 grid gap-2 sm:grid-cols-[1fr_200px_180px_auto]">
         <Input name="q" placeholder="ค้นหารหัส ชื่อ นามสกุล ชื่อเล่น" defaultValue={sp.q} />

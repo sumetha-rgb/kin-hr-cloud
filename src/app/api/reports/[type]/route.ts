@@ -4,6 +4,7 @@ import { branches, departments, employees, leaveTypes, payrollItems, payrollRuns
 import { getCurrentUser } from "@/lib/auth";
 import { loadAttendance } from "@/lib/attendance-data";
 import { csvResponse } from "@/lib/csv";
+import { getSettings } from "@/lib/payroll-run";
 import { bkkDateStr } from "@/lib/time";
 import { fullName, STATUS_LABEL } from "@/lib/util";
 
@@ -53,7 +54,18 @@ export async function GET(req: Request, ctx: { params: Promise<{ type: string }>
       const rows = await loadAttendance({ start, end, includeResigned: true });
       return csvResponse(`attendance-${start}-${end}.csv`, [
         ["รหัส", "ชื่อ-สกุล", "วันทำงาน", "มาทำงาน", "มาสาย(ครั้ง)", "สาย(นาที)", "ขาด", "ลา(รับเงิน)", "ลา(ไม่รับเงิน)", "ลงเวลาไม่ครบ"],
-        ...rows.map(({ employee: e, totals: t }) => [e.code, fullName(e), t.scheduled, t.worked, t.lateCount, t.lateMinutes, t.absent, t.paidLeave, t.unpaidLeave, t.incomplete]),
+        ...rows.map(({ employee: e, totals: t }) => [
+          e.code,
+          fullName(e),
+          t.scheduled,
+          t.worked,
+          t.lateCount,
+          t.lateMinutes,
+          t.absent,
+          t.paidLeave,
+          t.unpaidLeave,
+          t.incomplete,
+        ]),
       ]);
     }
 
@@ -68,7 +80,17 @@ export async function GET(req: Request, ctx: { params: Promise<{ type: string }>
         ...rows.flatMap(({ employee: e, days }) =>
           days
             .filter((d) => d.status !== "not_employed")
-            .map((d) => [d.date, e.code, fullName(e), hhmm(d.firstIn), hhmm(d.lastOut), (d.workedMinutes / 60).toFixed(2), d.lateMinutes, d.earlyMinutes, d.leave?.name ?? d.holiday ?? d.status]),
+            .map((d) => [
+              d.date,
+              e.code,
+              fullName(e),
+              hhmm(d.firstIn),
+              hhmm(d.lastOut),
+              (d.workedMinutes / 60).toFixed(2),
+              d.lateMinutes,
+              d.earlyMinutes,
+              d.leave?.name ?? d.holiday ?? d.status,
+            ]),
         ),
       ]);
     }
@@ -95,6 +117,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ type: string }>
 
     case "payroll":
     case "bank":
+    case "pnd1":
     case "sso": {
       const runId = Number(q.get("runId"));
       const [run] = await db.select().from(payrollRuns).where(eq(payrollRuns.id, runId));
@@ -109,7 +132,26 @@ export async function GET(req: Request, ctx: { params: Promise<{ type: string }>
 
       if (type === "payroll") {
         return csvResponse(`payroll-${period}.csv`, [
-          ["รหัส", "ชื่อ-สกุล", "ประเภท", "ฐาน", "วันทำงาน", "ขาด", "สาย(นาที)", "OT(ชม.)", "เงินได้", "OT", "เงินเพิ่ม", "รายได้อื่น", "รวมรายได้", "หักสาย", "ประกันสังคม", "ภาษี", "รายหักอื่น", "สุทธิ"],
+          [
+            "รหัส",
+            "ชื่อ-สกุล",
+            "ประเภท",
+            "ฐาน",
+            "วันทำงาน",
+            "ขาด",
+            "สาย(นาที)",
+            "OT(ชม.)",
+            "เงินได้",
+            "OT",
+            "เงินเพิ่ม",
+            "รายได้อื่น",
+            "รวมรายได้",
+            "หักสาย",
+            "ประกันสังคม",
+            "ภาษี",
+            "รายหักอื่น",
+            "สุทธิ",
+          ],
           ...items.map(({ i, e }) => [
             e.code,
             fullName(e),
@@ -138,11 +180,45 @@ export async function GET(req: Request, ctx: { params: Promise<{ type: string }>
           ...items.map(({ i, e }, n) => [n + 1, e.code, fullName(e), e.bankName, e.bankAccount, i.net]),
         ]);
       }
+      if (type === "pnd1") {
+        // ภ.ง.ด.1 (ใบแนบ) — เงินได้ตามมาตรา 40(1) ที่จ่ายในเดือน และภาษีที่หัก ณ ที่จ่าย
+        const s = await getSettings();
+        const payDate = `${String(Math.min(s.payDay, 28)).padStart(2, "0")}/${String(run.month).padStart(2, "0")}/${run.year + 543}`;
+        const paid = items.filter(({ i }) => Number(i.gross) - Number(i.lateDeduction) > 0);
+        const totalIncome = paid.reduce((a, { i }) => a + Number(i.gross) - Number(i.lateDeduction), 0);
+        const totalTax = paid.reduce((a, { i }) => a + Number(i.tax), 0);
+        return csvResponse(`pnd1-${period}.csv`, [
+          ["ลำดับ", "เลขประจำตัวผู้เสียภาษี", "คำนำหน้า", "ชื่อ", "นามสกุล", "วันเดือนปีที่จ่าย", "จำนวนเงินได้ที่จ่าย", "ภาษีที่หักและนำส่ง", "เงื่อนไข"],
+          ...paid.map(({ i, e }, n) => [
+            n + 1,
+            e.nationalId,
+            e.prefix,
+            e.firstName,
+            e.lastName,
+            payDate,
+            (Number(i.gross) - Number(i.lateDeduction)).toFixed(2),
+            i.tax,
+            1,
+          ]),
+          [],
+          ["", "", "", "", "รวม", `${paid.length} ราย`, totalIncome.toFixed(2), totalTax.toFixed(2), ""],
+          ["", "เงื่อนไข 1 = หัก ณ ที่จ่าย · นำไปกรอกในโปรแกรมยื่นแบบ (RD Prep) หรือแนบกับ ภ.ง.ด.1 ภายในวันที่ 7 ของเดือนถัดไป"],
+        ]);
+      }
       // ข้อมูลสำหรับยื่นเงินสมทบประกันสังคม (สปส.1-10) — นำไปกรอก/แปลงตามรูปแบบไฟล์ของ e-Service
       const ssoRows = items.filter(({ i }) => Number(i.sso) > 0);
       return csvResponse(`sso-${period}.csv`, [
         ["ลำดับ", "เลขประจำตัวประชาชน", "คำนำหน้า", "ชื่อ", "นามสกุล", "ค่าจ้าง", "เงินสมทบลูกจ้าง", "เงินสมทบนายจ้าง"],
-        ...ssoRows.map(({ i, e }, n) => [n + 1, e.nationalId, e.prefix, e.firstName, e.lastName, (Number(i.earnedSalary) - Number(i.lateDeduction)).toFixed(2), i.sso, i.sso]),
+        ...ssoRows.map(({ i, e }, n) => [
+          n + 1,
+          e.nationalId,
+          e.prefix,
+          e.firstName,
+          e.lastName,
+          (Number(i.earnedSalary) - Number(i.lateDeduction)).toFixed(2),
+          i.sso,
+          i.sso,
+        ]),
       ]);
     }
   }

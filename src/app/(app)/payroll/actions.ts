@@ -3,7 +3,7 @@
 import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { payrollItems, payrollRuns } from "@/db/schema";
+import { payrollItems, payrollRuns, taxOpeningBalances } from "@/db/schema";
 import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth";
 import { notify, userIdsOfEmployees } from "@/lib/notify";
@@ -18,7 +18,10 @@ export async function createRun(fd: FormData) {
   const year = Number(fd.get("year"));
   const month = Number(fd.get("month"));
   if (!(year >= 2000 && year <= 2100 && month >= 1 && month <= 12)) return fail("/payroll", "งวดไม่ถูกต้อง");
-  const [exists] = await db.select().from(payrollRuns).where(and(eq(payrollRuns.year, year), eq(payrollRuns.month, month)));
+  const [exists] = await db
+    .select()
+    .from(payrollRuns)
+    .where(and(eq(payrollRuns.year, year), eq(payrollRuns.month, month)));
   if (exists) redirect(`/payroll/${exists.id}`);
   const [run] = await db.insert(payrollRuns).values({ year, month, createdBy: u.id }).returning();
   let n = 0;
@@ -102,4 +105,39 @@ export async function deleteRun(fd: FormData) {
   await db.delete(payrollRuns).where(eq(payrollRuns.id, id));
   await audit(u.id, "delete", "payroll_run", id);
   redirect(withMsg("/payroll", { ok: "ลบงวดแล้ว" }));
+}
+
+/** บันทึกยอดยกมาภาษีทั้งตาราง (ช่องว่าง/ศูนย์ทั้งแถว = ลบยอดยกมาของคนนั้น) */
+export async function saveOpenings(fd: FormData) {
+  const u = await requireRole("admin", "hr");
+  const year = Number(fd.get("year"));
+  const P = `/payroll/tax?year=${year}`;
+  if (!(year >= 2000 && year <= 2100)) return fail(P, "ปีไม่ถูกต้อง");
+  const ids = fd.getAll("emp").map(Number).filter(Boolean);
+  const num = (k: string) => {
+    const v = String(fd.get(k) ?? "")
+      .replace(/,/g, "")
+      .trim();
+    const n = v === "" ? 0 : Number(v);
+    return Number.isFinite(n) && n >= 0 ? n : NaN;
+  };
+  let saved = 0;
+  for (const id of ids) {
+    const income = num(`income_${id}`);
+    const sso = num(`sso_${id}`);
+    const tax = num(`tax_${id}`);
+    if ([income, sso, tax].some(Number.isNaN)) return fail(P, "กรอกตัวเลขไม่ถูกต้อง");
+    if (!income && !sso && !tax) {
+      await db.delete(taxOpeningBalances).where(and(eq(taxOpeningBalances.employeeId, id), eq(taxOpeningBalances.year, year)));
+      continue;
+    }
+    const values = { income: income.toFixed(2), sso: sso.toFixed(2), tax: tax.toFixed(2), updatedAt: new Date() };
+    await db
+      .insert(taxOpeningBalances)
+      .values({ employeeId: id, year, ...values })
+      .onConflictDoUpdate({ target: [taxOpeningBalances.employeeId, taxOpeningBalances.year], set: values });
+    saved++;
+  }
+  await audit(u.id, "update", "tax_opening", year, { saved });
+  redirect(withMsg(P, { ok: `บันทึกยอดยกมา ${saved} คนแล้ว — กด "คำนวณใหม่" ในงวดที่ยังไม่ปิด เพื่อให้ภาษีใช้ยอดนี้` }));
 }

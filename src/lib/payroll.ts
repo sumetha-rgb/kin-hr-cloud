@@ -52,6 +52,34 @@ export function monthlyWithholding(monthlyTaxable: Decimal.Value, monthlySso: De
   return r2(annualPit(Decimal.max(net, 0)).div(12));
 }
 
+/** ภาษีทั้งปีจากเงินได้ทั้งปี (หักค่าใช้จ่าย/ลดหย่อน แล้วคิดตามขั้นบันได) */
+export function annualTaxOf(annualIncome: Decimal.Value, annualSso: Decimal.Value, extraAnnualAllowance: Decimal.Value = 0) {
+  const annual = D(annualIncome);
+  const expense = Decimal.min(annual.mul(0.5), 100_000);
+  const net = Decimal.max(annual.minus(expense).minus(60_000).minus(D(annualSso)).minus(D(extraAnnualAllowance)), 0);
+  return { annual, expense, net, tax: annualPit(net) };
+}
+
+/** ยอดสะสมตั้งแต่ต้นปีถึงเดือนก่อน (จากงวดที่ปิดแล้ว) */
+export type Ytd = { taxable: Decimal.Value; sso: Decimal.Value; tax: Decimal.Value };
+
+/**
+ * ภาษีหัก ณ ที่จ่ายแบบ "สะสมทั้งปี" (ปรับยอดทุกเดือน และตรงพอดีในเดือนธันวาคม):
+ *   เงินได้ทั้งปี(ประมาณ) = เงินได้สะสมถึงเดือนก่อน + เงินได้เดือนนี้ × จำนวนเดือนที่เหลือ (รวมเดือนนี้)
+ *   ภาษีเดือนนี้ = (ภาษีทั้งปี − ภาษีที่หักไปแล้ว) ÷ จำนวนเดือนที่เหลือ
+ * เดือนไหนได้ OT มาก ภาษีจะเฉลี่ยไปเดือนที่เหลือ ไม่กระโดดทีเดียว และเดือน 12 จะหักส่วนที่ขาด/คืนส่วนที่เกินให้พอดีภาษีจริง
+ */
+export function cumulativeWithholding(o: { month: number; taxable: Decimal.Value; sso: Decimal.Value; extraAnnualAllowance?: Decimal.Value; ytd?: Ytd }): Decimal {
+  const remaining = 13 - o.month;
+  const ytd = o.ytd ?? { taxable: 0, sso: 0, tax: 0 };
+  const income = D(ytd.taxable).plus(D(o.taxable).mul(remaining));
+  if (income.lte(0)) return D(0);
+  const sso = D(ytd.sso).plus(D(o.sso).mul(remaining));
+  const { tax } = annualTaxOf(income, sso, o.extraAnnualAllowance ?? 0);
+  // ไม่ติดลบ: ถ้าหักเกินมาแล้ว เดือนนี้หัก 0 (ส่วนเกินขอคืนตอนยื่น ภ.ง.ด.91)
+  return r2(Decimal.max(tax.minus(D(ytd.tax)), 0).div(remaining));
+}
+
 export type PayInput = {
   payType: "monthly" | "daily";
   baseSalary: Decimal.Value;
@@ -71,8 +99,12 @@ export type PayInput = {
   ssoRate: Decimal.Value;
   ssoMinBase: Decimal.Value;
   ssoMaxBase: Decimal.Value;
-  deductLate: boolean;
+  /** ไม่ใช้แล้ว — มาสายไม่หักเงิน */
+  deductLate?: boolean;
   extraTaxAllowance: Decimal.Value;
+  /** เดือนของงวด (1-12) และยอดสะสมต้นปี — ถ้าไม่ส่งมาใช้วิธีประมาณ × 12 แบบเดิม */
+  month?: number;
+  ytd?: Ytd;
 };
 
 export function calcPay(i: PayInput) {
@@ -91,13 +123,17 @@ export function calcPay(i: PayInput) {
   }
   earned = r2(Decimal.max(earned, 0));
   const otAmount = r2(hourly.mul(D(i.otUnits)));
-  const lateDeduction = i.deductLate ? r2(hourly.div(60).mul(i.lateMinutes)) : D(0);
+  // นโยบายบริษัท: มาสาย "ไม่หักเงิน" เด็ดขาด (บันทึกนาทีที่สายไว้ดูวินัยเท่านั้น)
+  const lateDeduction = D(0);
   const allowance = r2(D(i.allowance));
   const otherIncome = r2(D(i.otherIncome));
   const otherDeduction = r2(D(i.otherDeduction));
   const gross = earned.plus(otAmount).plus(allowance).plus(otherIncome);
   const sso = i.ssoEnabled ? calcSso(Decimal.max(earned.minus(lateDeduction), 0), i.ssoRate, i.ssoMinBase, i.ssoMaxBase) : D(0);
-  const tax = monthlyWithholding(Decimal.max(gross.minus(lateDeduction), 0), sso, i.extraTaxAllowance);
+  const taxable = Decimal.max(gross.minus(lateDeduction), 0);
+  const tax = i.month
+    ? cumulativeWithholding({ month: i.month, taxable, sso, extraAnnualAllowance: i.extraTaxAllowance, ytd: i.ytd })
+    : monthlyWithholding(taxable, sso, i.extraTaxAllowance);
   const net = gross.minus(lateDeduction).minus(sso).minus(tax).minus(otherDeduction);
   const s = (v: Decimal) => v.toFixed(2);
   return {

@@ -7,7 +7,8 @@ import { db } from "@/db";
 import { attendanceLogs, employees, holidays, leaveTypes, requests, shifts } from "@/db/schema";
 import { DEFAULT_SHIFT, isWorkDay } from "@/lib/attendance";
 import { audit } from "@/lib/audit";
-import { canDecide, HEAD_IS_FINAL, headOf, stageOf } from "@/lib/approval";
+import { approversOf, canDecide, HEAD_IS_FINAL, stageOf } from "@/lib/approval";
+import { loadRoster } from "@/lib/roster";
 import { requireUser } from "@/lib/auth";
 import { parseForm, zBool, zDate, zTime } from "@/lib/form";
 import { hrUserIds, notify, userIdsOfEmployees } from "@/lib/notify";
@@ -53,15 +54,20 @@ export async function createRequest(fd: FormData) {
     if (v.endDate < v.startDate) return fail(P, "วันที่สิ้นสุดต้องไม่ก่อนวันที่เริ่ม");
     if (v.halfDay && v.startDate !== v.endDate) return fail(P, "ลาครึ่งวันได้เฉพาะวันเดียว");
 
-    const [[lt], [emp], hol] = await Promise.all([
+    const [[lt], [emp], hol, roster] = await Promise.all([
       db.select().from(leaveTypes).where(eq(leaveTypes.id, v.leaveTypeId)),
       db.select({ shift: shifts }).from(employees).leftJoin(shifts, eq(employees.shiftId, shifts.id)).where(eq(employees.id, empId)),
-      db.select({ date: holidays.date }).from(holidays).where(and(gte(holidays.date, v.startDate), lte(holidays.date, v.endDate))),
+      db
+        .select({ date: holidays.date })
+        .from(holidays)
+        .where(and(gte(holidays.date, v.startDate), lte(holidays.date, v.endDate))),
+      loadRoster(v.startDate, v.endDate, [empId]),
     ]);
     if (!lt) return fail(P, "ไม่พบประเภทการลา");
+    const myRoster = roster.get(empId);
     const holSet = new Set(hol.map((h) => h.date));
     const shift = emp?.shift ?? DEFAULT_SHIFT;
-    const workDays = eachDate(v.startDate, v.endDate).filter((d) => isWorkDay(d, shift) && !holSet.has(d)).length;
+    const workDays = eachDate(v.startDate, v.endDate).filter((d) => (myRoster?.has(d) ? myRoster.get(d) !== null : isWorkDay(d, shift)) && !holSet.has(d)).length; // ตามตารางเวรถ้ามี
     if (workDays === 0) return fail(P, "ช่วงวันที่เลือกไม่มีวันทำงาน");
     const days = v.halfDay ? 0.5 : workDays;
 
@@ -122,8 +128,9 @@ export async function createRequest(fd: FormData) {
   }
 
   // แจ้งผู้อนุมัติขั้นแรก: หัวหน้า (รายคน/หัวหน้าแผนก) — ถ้าไม่มีหัวหน้า ส่งตรงถึง HR
-  const headId = await headOf(empId);
-  const approvers = headId ? [...(await userIdsOfEmployees([headId])).values()] : await hrUserIds(u.id);
+  // หัวหน้า + ผู้อนุมัติแทน (ถ้าหัวหน้าลาอยู่) ได้รับแจ้งทั้งคู่
+  const { headId, actingId } = await approversOf(empId);
+  const approvers = headId ? [...(await userIdsOfEmployees([headId, ...(actingId ? [actingId] : [])])).values()] : await hrUserIds(u.id);
   await notify(approvers, {
     kind: "request_new",
     title: `คำขอใหม่รออนุมัติ: ${REQUEST_TYPE_LABEL[type as keyof typeof REQUEST_TYPE_LABEL] ?? ""}`,
@@ -153,9 +160,9 @@ export async function decideRequest(fd: FormData) {
 
   const [r] = await db.select().from(requests).where(eq(requests.id, id));
   if (!r || r.status !== "pending") return fail(P, "คำขอนี้ถูกดำเนินการไปแล้ว");
-  const headId = await headOf(r.employeeId);
+  const { headId, actingId } = await approversOf(r.employeeId);
   const stage = stageOf(r, headId);
-  if (!canDecide(u, r, headId)) {
+  if (!canDecide(u, r, headId, actingId)) {
     return fail(P, stage === "head" ? "คำขอนี้ต้องให้หัวหน้าแผนกอนุมัติก่อน" : "คุณไม่มีสิทธิ์อนุมัติคำขอนี้");
   }
   const typeLabel = REQUEST_TYPE_LABEL[r.type];

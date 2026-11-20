@@ -1,14 +1,19 @@
-import { and, count, eq, isNull, sql } from "drizzle-orm";
+import { and, count, eq, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { notifications, warnings } from "@/db/schema";
+import { certificateRequests, employeeLicenses, employees, notifications, shifts, warnings } from "@/db/schema";
+import { addDays, bkkDateStr } from "@/lib/time";
 import { Sidebar, type NavItem } from "@/components/sidebar";
+import { after } from "next/server";
 import { pendingForUser } from "@/lib/approval";
+import { maybeRunDailyJobs } from "@/lib/daily-jobs";
 import { requireUser } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/util";
 import { logout } from "../login/actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  // งานประจำวัน (เตือนคำขอค้าง ใบอนุญาต ลืมสแกนออก) — รันหลังส่งหน้าเสร็จ วันละครั้ง
+  after(maybeRunDailyJobs);
   const hr = user.role === "admin" || user.role === "hr";
   const mgr = hr || user.role === "manager";
   const [[{ n: unread }], myWarn] = await Promise.all([
@@ -29,7 +34,28 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]);
   const myWarnings = myWarn[0];
   // ตัวเลขบนเมนู "อนุมัติคำขอ" = คำขอที่รอ "คุณ" ตัดสิน ณ ขั้นปัจจุบัน
-  const pendingApprovals = mgr ? (await pendingForUser(user)).length : 0;
+  const [pendingApprovals, [shiftRow], [certPending], [licenseDue]] = await Promise.all([
+    mgr ? pendingForUser(user).then((x) => x.length) : 0,
+    // เมนู "ตารางเวรของฉัน" แสดงเมื่อกะประจำทำงานเกิน 5 วัน/สัปดาห์ (งานเวร) หรือเคยถูกจัดเวร
+    user.employeeId
+      ? db
+          .select({
+            days: sql<string>`coalesce(${shifts.workDays}, '')`,
+            assigned: sql<number>`(select count(*)::int from shift_assignments sa where sa.employee_id = ${employees.id})`,
+          })
+          .from(employees)
+          .leftJoin(shifts, eq(employees.shiftId, shifts.id))
+          .where(eq(employees.id, user.employeeId))
+      : Promise.resolve([]),
+    hr ? db.select({ n: count() }).from(certificateRequests).where(eq(certificateRequests.status, "pending")) : Promise.resolve([{ n: 0 }]),
+    hr
+      ? db
+          .select({ n: count() })
+          .from(employeeLicenses)
+          .where(and(isNotNull(employeeLicenses.expiresAt), lte(employeeLicenses.expiresAt, addDays(bkkDateStr(), 30))))
+      : Promise.resolve([{ n: 0 }]),
+  ]);
+  const shiftWorker = !!shiftRow && (shiftRow.days.split(",").filter(Boolean).length > 5 || shiftRow.assigned > 0);
 
   // ชื่อเมนูภาษาไทยล้วน บอกว่ากดแล้วทำอะไรได้ (บรรทัดรองเป็นตัวอย่างสิ่งที่อยู่ข้างใน)
   // หัวหน้า/HR แบ่ง 2 หมวด: "ของฉัน" (เรื่องของตัวเอง) กับ "งานจัดการ" (ทำให้คนอื่น) — พนักงานทั่วไปไม่มีหมวด
@@ -71,7 +97,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   };
   const approve: NavItem = {
     href: "/requests/inbox",
-    match: ["/requests/history"],
+    match: ["/requests/history", "/requests/calendar"],
     label: "อนุมัติคำขอ",
     sub: hr ? "ลา OT แก้เวลา ทุกคน" : "ลา OT แก้เวลา ของลูกทีม",
     short: "อนุมัติ",
@@ -105,7 +131,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       badge: unread,
     },
     // ของฉัน
-    ...(user.employeeId ? [scan, myRequests, myAttendance, mySlips] : []),
+    ...(user.employeeId ? [scan, myRequests, myAttendance] : []),
+    ...(user.employeeId && shiftWorker ? [{ href: "/roster/me", label: "ตารางเวรของฉัน", sub: "ดูเวร ขอแลกเวร", icon: "calendar", section: ME }] : []),
+    ...(user.employeeId ? [mySlips] : []),
+    ...(user.employeeId && !hr ? [{ href: "/certificates", label: "ขอหนังสือรับรอง", sub: "รับรองการทำงาน / เงินเดือน", icon: "document", section: ME }] : []),
     ...(!hr && myWarnings.total > 0
       ? [
           {
@@ -120,10 +149,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       : []),
     { href: "/account", label: "โปรไฟล์ของฉัน", icon: "user", section: ME },
     // งานจัดการ
-    ...(mgr ? [approve, teamAttendance] : []),
+    ...(hr ? [{ href: "/dashboard", label: "ภาพรวมผู้บริหาร", sub: "OT มาสาย การลา อัตราลาออก", icon: "chart", section: MANAGE }] : []),
+    ...(mgr ? [approve, teamAttendance, { href: "/roster", label: "ตารางเวร", sub: "จัดเวร อนุมัติแลกเวร", icon: "calendar", section: MANAGE }] : []),
     ...(hr
       ? [
-          personnel,
+          { ...personnel, badge: licenseDue.n, sub: licenseDue.n ? "ใบอนุญาตใกล้หมดอายุ" : personnel.sub },
+          { href: "/contracts", label: "สัญญาจ้าง", sub: "ออกสัญญาตามแม่แบบตำแหน่ง", icon: "document", section: MANAGE },
+          { href: "/certificates", label: "หนังสือรับรอง", sub: "ออกหนังสือให้พนักงาน", icon: "document", badge: certPending.n, section: MANAGE },
           {
             href: "/payroll",
             label: "เงินเดือน",

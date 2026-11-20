@@ -6,7 +6,7 @@ import { Card, DesktopOnly, Flash, LinkButton, MobileCard, MobileList, Table } f
 import { requireUser } from "@/lib/auth";
 import { bkkDateStr, fmtDateTime } from "@/lib/time";
 import { cancelRequest } from "../actions";
-import { headOf, namesOf, stageOf } from "@/lib/approval";
+import { approversOf, namesOf, stageOf } from "@/lib/approval";
 import { ApprovalTrail, RequestSummary, StatusBadge, TypeBadge } from "../request-detail";
 
 export const metadata = { title: "คำขอของฉัน" };
@@ -49,12 +49,13 @@ export default async function MyRequests({ searchParams }: { searchParams: Promi
   ]);
 
   // ตอนนี้รอใคร: หัวหน้าของฉัน (รายคน/หัวหน้าแผนก) + ชื่อคนที่อนุมัติไปแล้ว
-  const headId = await headOf(u.employeeId);
+  const { headId, actingId } = await approversOf(u.employeeId);
   const names = await namesOf({
-    employees: [headId],
+    employees: [headId, actingId],
     users: rows.flatMap(({ r }) => [r.headApprovedBy, r.decidedBy]),
   });
-  const headName = headId ? (names.employee.get(headId) ?? null) : null;
+  // หัวหน้าลาอยู่และตั้งคนอนุมัติแทน → แสดงทั้งสองชื่อ
+  const headName = headId ? (names.employee.get(headId) ?? "") + (actingId ? ` หรือ ${names.employee.get(actingId)} (แทน)` : "") || null : null;
 
   return (
     <>

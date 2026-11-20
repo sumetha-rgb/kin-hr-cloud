@@ -3,7 +3,7 @@ import Link from "next/link";
 import { db } from "@/db";
 import { payrollItems, payrollRuns } from "@/db/schema";
 import { Icon } from "@/components/icons";
-import { DesktopOnly, MobileCard, MobileList, PageHeader, Table } from "@/components/ui";
+import { DesktopOnly, MobileCard, MobileList, PageHeader, Table, btn } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { fmtDate, fmtMonth } from "@/lib/time";
 import { fmtMoney } from "@/lib/util";
@@ -20,9 +20,25 @@ export default async function MySlips() {
         .where(and(eq(payrollItems.employeeId, u.employeeId), eq(payrollRuns.status, "finalized")))
         .orderBy(desc(payrollRuns.year), desc(payrollRuns.month))
     : [];
+  // ปีที่มีสลิป → ออก 50 ทวิ ของปีนั้นได้
+  const years = [...new Set(rows.map(({ run }) => run.year))];
   return (
     <>
-      <PageHeader title="สลิปเงินเดือนของฉัน" />
+      <PageHeader
+        title="สลิปเงินเดือนของฉัน"
+        actions={
+          years.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {years.map((y) => (
+                <Link key={y} href={`/payroll/tax/${y}/${u.employeeId}`} className={btn.secondary}>
+                  <Icon name="printer" className="size-4" />
+                  หนังสือรับรองภาษี (50 ทวิ) {y + 543}
+                </Link>
+              ))}
+            </div>
+          )
+        }
+      />
       <MobileList empty={!rows.length}>
         {rows.map(({ i, run }) => (
           <MobileCard key={i.id} href={`/payroll/${run.id}/slip/${i.employeeId}`}>

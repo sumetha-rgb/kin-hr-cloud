@@ -1,10 +1,10 @@
 /* eslint-disable @next/next/no-img-element */
-import { and, eq } from "drizzle-orm";
+import { and, eq, lt, sql } from "drizzle-orm";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import Decimal from "decimal.js";
 import { db } from "@/db";
-import { branches, departments, employees, payrollItems, payrollRuns, positions } from "@/db/schema";
+import { branches, departments, employees, payrollItems, payrollRuns, positions, taxOpeningBalances } from "@/db/schema";
 import { Icon, type IconName } from "@/components/icons";
 import { PrintButton } from "@/components/print-button";
 import { requireUser } from "@/lib/auth";
@@ -20,7 +20,21 @@ function maskAccount(acc: string | null) {
   return d.length >= 4 ? `•••• ${d.slice(-4)}` : acc || "-";
 }
 
-function Lines({ title, icon, tone, rows, total, totalLabel }: { title: string; icon: IconName; tone: "in" | "out"; rows: Array<[string, string | Decimal]>; total: string | Decimal; totalLabel: string }) {
+function Lines({
+  title,
+  icon,
+  tone,
+  rows,
+  total,
+  totalLabel,
+}: {
+  title: string;
+  icon: IconName;
+  tone: "in" | "out";
+  rows: Array<[string, string | Decimal]>;
+  total: string | Decimal;
+  totalLabel: string;
+}) {
   const shown = rows.filter(([, v], i) => i === 0 || !new Decimal(v).isZero()); // บรรทัดแรกแสดงเสมอ ที่เหลือซ่อนถ้าเป็น 0
   return (
     <section className="rounded-2xl border border-brand-100 p-4 print:break-inside-avoid">
@@ -65,8 +79,29 @@ export default async function SlipPage({ params }: { params: Promise<{ id: strin
     .leftJoin(positions, eq(employees.positionId, positions.id))
     .where(and(eq(payrollItems.runId, Number(id)), eq(payrollItems.employeeId, Number(employeeId))));
   if (!row || (!hr && row.run.status !== "finalized")) notFound();
-  const company = await getSettings();
   const { i, run, e } = row;
+  // ยอดสะสมตั้งแต่ต้นปีถึงงวดนี้ = งวดก่อนหน้าที่ปิดแล้ว + ยอดยกมา + งวดนี้
+  const [company, [prev], [opening]] = await Promise.all([
+    getSettings(),
+    db
+      .select({
+        income: sql<string>`coalesce(sum(greatest(${payrollItems.gross} - ${payrollItems.lateDeduction}, 0)), 0)`,
+        sso: sql<string>`coalesce(sum(${payrollItems.sso}), 0)`,
+        tax: sql<string>`coalesce(sum(${payrollItems.tax}), 0)`,
+      })
+      .from(payrollItems)
+      .innerJoin(payrollRuns, eq(payrollItems.runId, payrollRuns.id))
+      .where(and(eq(payrollItems.employeeId, i.employeeId), eq(payrollRuns.year, run.year), lt(payrollRuns.month, run.month), eq(payrollRuns.status, "finalized"))),
+    db
+      .select()
+      .from(taxOpeningBalances)
+      .where(and(eq(taxOpeningBalances.employeeId, i.employeeId), eq(taxOpeningBalances.year, run.year))),
+  ]);
+  const ytd = {
+    income: Number(prev?.income ?? 0) + Number(opening?.income ?? 0) + Math.max(Number(i.gross) - Number(i.lateDeduction), 0),
+    sso: Number(prev?.sso ?? 0) + Number(opening?.sso ?? 0) + Number(i.sso),
+    tax: Number(prev?.tax ?? 0) + Number(opening?.tax ?? 0) + Number(i.tax),
+  };
   const final = run.status === "finalized";
 
   const incomes: Array<[string, string]> = [
@@ -78,7 +113,8 @@ export default async function SlipPage({ params }: { params: Promise<{ id: strin
   const deductions: Array<[string, string]> = [
     ["ประกันสังคม", i.sso],
     ["ภาษีหัก ณ ที่จ่าย", i.tax],
-    [`หักมาสาย (${i.lateMinutes} นาที)`, i.lateDeduction],
+    // มาสายไม่หักเงิน — แสดงเฉพาะสลิปเก่าที่เคยหักไว้
+    ...(Number(i.lateDeduction) > 0 ? [[`หักมาสาย (${i.lateMinutes} นาที)`, i.lateDeduction] as [string, string]] : []),
     ["รายหักอื่น", i.otherDeduction],
   ];
   const totalDeduct = deductions.reduce((a, [, v]) => a.plus(v), new Decimal(0));
@@ -176,6 +212,23 @@ export default async function SlipPage({ params }: { params: Promise<{ id: strin
                 <p className="mt-0.5 text-lg font-semibold text-brand-900 tabular-nums">{v}</p>
               </div>
             ))}
+          </section>
+
+          {/* ยอดสะสมทั้งปี */}
+          <section className="rounded-2xl border border-brand-100 px-4 py-3 print:break-inside-avoid">
+            <p className="text-xs font-medium text-stone-500">ยอดสะสมตั้งแต่ต้นปี {run.year + 543} ถึงงวดนี้</p>
+            <div className="mt-1 grid grid-cols-3 gap-2 text-center">
+              {[
+                ["เงินได้สะสม", ytd.income],
+                ["ประกันสังคมสะสม", ytd.sso],
+                ["ภาษีสะสม", ytd.tax],
+              ].map(([k, v]) => (
+                <div key={String(k)}>
+                  <p className="text-[11px] text-stone-500">{k}</p>
+                  <p className="font-semibold text-brand-900 tabular-nums">{fmtMoney(v)}</p>
+                </div>
+              ))}
+            </div>
           </section>
         </div>
 

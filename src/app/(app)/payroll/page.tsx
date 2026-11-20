@@ -3,7 +3,7 @@ import Link from "next/link";
 import { db } from "@/db";
 import { payrollItems, payrollRuns } from "@/db/schema";
 import { SubmitButton } from "@/components/submit-button";
-import { Badge, Card, Field, Flash, Input, PageHeader, Select, Table } from "@/components/ui";
+import { Badge, Card, Field, Flash, Input, PageHeader, Select, Table, btn } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
 import { bkkDateStr, fmtDateTime, fmtMonth } from "@/lib/time";
 import { fmtMoney } from "@/lib/util";
@@ -24,7 +24,15 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <PageHeader title="เงินเดือน" subtitle="คำนวณเงินเดือนรายงวด ปิดงวด และออกสลิป" />
+      <PageHeader
+        title="เงินเดือน"
+        subtitle="คำนวณเงินเดือนรายงวด ปิดงวด และออกสลิป"
+        actions={
+          <Link href="/payroll/tax" className={btn.secondary}>
+            ภาษีทั้งปี / 50 ทวิ
+          </Link>
+        }
+      />
       <Flash ok={sp.ok} error={sp.error} />
       <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
         <Table head={["งวด", "จำนวนคน", "รายได้รวม", "จ่ายสุทธิ", "สถานะ", "คำนวณล่าสุด"]} empty={!runs.length}>
@@ -54,9 +62,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
               </Field>
             </div>
             <SubmitButton>คำนวณเงินเดือน</SubmitButton>
-            <p className="text-xs text-stone-500">
-              ระบบดึงเวลาทำงาน ขาด/สาย ใบลาที่อนุมัติ และ OT ที่อนุมัติ มาคำนวณ พร้อมหักประกันสังคมและภาษี ณ ที่จ่ายอัตโนมัติ คำนวณซ้ำได้จนกว่าจะปิดงวด
-            </p>
+            <p className="text-xs text-stone-500">ระบบดึงเวลาทำงาน ขาด/สาย ใบลาที่อนุมัติ และ OT ที่อนุมัติ มาคำนวณ พร้อมหักประกันสังคมและภาษี ณ ที่จ่ายอัตโนมัติ คำนวณซ้ำได้จนกว่าจะปิดงวด</p>
           </form>
         </Card>
       </div>

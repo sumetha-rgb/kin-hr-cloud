@@ -17,14 +17,16 @@ export function fullName(e: { prefix?: string | null; firstName: string; lastNam
 
 /** สร้าง URL พร้อมข้อความแจ้งผล ใช้กับ redirect() หลัง server action */
 export function withMsg(path: string, msg: { ok?: string; error?: string }): string {
-  const [base, qs] = path.split("?");
+  // เก็บ #anchor ไว้ท้าย URL (เช่น /personnel/5#licenses)
+  const [noHash, hash] = path.split("#");
+  const [base, qs] = noHash.split("?");
   const p = new URLSearchParams(qs);
   p.delete("ok");
   p.delete("error");
   if (msg.ok) p.set("ok", msg.ok);
   if (msg.error) p.set("error", msg.error);
   const s = p.toString();
-  return s ? `${base}?${s}` : base;
+  return (s ? `${base}?${s}` : base) + (hash ? `#${hash}` : "");
 }
 
 export const ROLE_LABEL = { admin: "ผู้ดูแลระบบ", hr: "HR", manager: "หัวหน้างาน", employee: "พนักงาน" } as const;

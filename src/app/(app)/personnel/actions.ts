@@ -5,7 +5,7 @@ import { and, eq, ne } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
-import { employees, users, webauthnCredentials } from "@/db/schema";
+import { employeeLicenses, employees, users, webauthnCredentials } from "@/db/schema";
 import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth";
 import { parseForm, zBool, zDate, zMoney, zOptInt } from "@/lib/form";
@@ -45,6 +45,16 @@ const employeeSchema = z.object({
   allowRemoteCheckin: zBool,
   lineId: z.string().max(60).optional(),
   address: z.string().max(500).optional(),
+  // ที่อยู่แยกช่อง (ใช้ในสัญญาจ้าง)
+  addrNo: z.string().max(50).optional(),
+  addrMoo: z.string().max(20).optional(),
+  addrVillage: z.string().max(100).optional(),
+  addrSoi: z.string().max(100).optional(),
+  addrRoad: z.string().max(100).optional(),
+  addrSubdistrict: z.string().max(100).optional(),
+  addrDistrict: z.string().max(100).optional(),
+  addrProvince: z.string().max(100).optional(),
+  addrZip: z.string().max(10).optional(),
   emergencyName: z.string().max(100).optional(),
   emergencyPhone: z.string().max(30).optional(),
   bio: z.string().max(300).optional(),
@@ -140,4 +150,38 @@ export async function removeCredential(fd: FormData) {
   await db.delete(webauthnCredentials).where(eq(webauthnCredentials.id, credId));
   await audit(u.id, "reset_device", "employee", empId, { credentialId: credId });
   redirect(withMsg(`/personnel/${empId}`, { ok: "ลบอุปกรณ์แล้ว พนักงานสามารถลงทะเบียนเครื่องใหม่ได้" }));
+}
+
+/* ------------------------- ใบอนุญาต / ใบรับรอง ------------------------- */
+export async function saveLicense(fd: FormData) {
+  const u = await requireRole("admin", "hr");
+  const back = String(fd.get("back") || "/personnel/licenses");
+  const r = parseForm(
+    z.object({
+      id: zOptInt,
+      employeeId: z.coerce.number().int().positive("เลือกพนักงาน"),
+      name: z.string().min(1, "กรอกชื่อใบอนุญาต"),
+      licenseNo: z.string().optional(),
+      issuedAt: zDate.optional(),
+      expiresAt: zDate.optional(),
+      note: z.string().optional(),
+    }),
+    fd,
+  );
+  if (!r.ok) return fail(back, r.error);
+  const { id, ...v } = r.data;
+  const values = { ...v, licenseNo: v.licenseNo ?? null, issuedAt: v.issuedAt ?? null, expiresAt: v.expiresAt ?? null, note: v.note ?? null };
+  if (id) await db.update(employeeLicenses).set(values).where(eq(employeeLicenses.id, id));
+  else await db.insert(employeeLicenses).values(values);
+  await audit(u.id, id ? "update" : "create", "license", id ?? v.employeeId, values);
+  redirect(withMsg(back, { ok: "บันทึกใบอนุญาตแล้ว" }));
+}
+
+export async function deleteLicense(fd: FormData) {
+  const u = await requireRole("admin", "hr");
+  const back = String(fd.get("back") || "/personnel/licenses");
+  const id = Number(fd.get("id"));
+  await db.delete(employeeLicenses).where(eq(employeeLicenses.id, id));
+  await audit(u.id, "delete", "license", id);
+  redirect(withMsg(back, { ok: "ลบใบอนุญาตแล้ว" }));
 }

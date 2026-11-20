@@ -217,13 +217,12 @@ export async function saveSettings(fd: FormData) {
       ssoRate: z.coerce.number().min(0).max(20).transform((n) => n.toFixed(2)),
       ssoMinBase: zMoney,
       ssoMaxBase: zMoney,
-      deductLate: zBool,
       maxGpsAccuracyM: z.coerce.number().int().min(10).max(2000),
     }),
     fd,
   );
   if (!r.ok) fail(P, r.error);
-  const values = { ...r.data, taxId: r.data.taxId ?? null, address: r.data.address ?? null, updatedAt: new Date() };
+  const values = { ...r.data, taxId: r.data.taxId ?? null, address: r.data.address ?? null, deductLate: false, updatedAt: new Date() };
   await db.insert(companySettings).values({ id: 1, ...values }).onConflictDoUpdate({ target: companySettings.id, set: values });
   await audit(u.id, "update", "settings", 1, values);
   done(P, "บันทึกการตั้งค่าแล้ว");

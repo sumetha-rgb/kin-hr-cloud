@@ -1,6 +1,7 @@
 import { and, eq, gte, inArray, lte, ne, or, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { attendanceLogs, employees, holidays, leaveTypes, requests, shifts, type Employee, type Shift } from "@/db/schema";
+import { loadRoster } from "./roster";
 import { summarizeDays, totals, type DayRecord, type LeaveSpan, type Punch } from "./attendance";
 import { addDays, atBkk } from "./time";
 
@@ -18,14 +19,17 @@ export async function loadAttendance(opts: { start: string; end: string; employe
   const empFilter = employeeIds ? inArray(employees.id, employeeIds) : undefined;
   const activeFilter = opts.includeResigned ? undefined : or(ne(employees.status, "resigned"), gte(employees.endDate, start));
 
-  const [emps, hol, lv, logs] = await Promise.all([
+  const [emps, hol, lv, logs, roster, allShifts] = await Promise.all([
     db
       .select({ e: employees, shift: shifts })
       .from(employees)
       .leftJoin(shifts, eq(employees.shiftId, shifts.id))
       .where(and(empFilter, activeFilter, lte(employees.startDate, end), or(isNull(employees.endDate), gte(employees.endDate, start))))
       .orderBy(employees.code),
-    db.select().from(holidays).where(and(gte(holidays.date, start), lte(holidays.date, end))),
+    db
+      .select()
+      .from(holidays)
+      .where(and(gte(holidays.date, start), lte(holidays.date, end))),
     db
       .select({
         employeeId: requests.employeeId,
@@ -56,7 +60,10 @@ export async function loadAttendance(opts: { start: string; end: string; employe
           employeeIds ? inArray(attendanceLogs.employeeId, employeeIds) : undefined,
         ),
       ),
+    loadRoster(start, end, employeeIds),
+    db.select().from(shifts),
   ]);
+  const shiftById = new Map(allShifts.map((s) => [s.id, s]));
 
   const holidayMap = new Map(hol.map((h) => [h.date, h.name]));
   const leavesBy = new Map<number, LeaveSpan[]>();
@@ -83,6 +90,8 @@ export async function loadAttendance(opts: { start: string; end: string; employe
       leaves: leavesBy.get(e.id) ?? [],
       employedFrom: e.startDate,
       employedTo: e.endDate,
+      // ตารางเวร (ถ้าจัดไว้) แทนกะประจำรายวัน
+      roster: roster.has(e.id) ? new Map([...roster.get(e.id)!].map(([d, sid]) => [d, sid ? (shiftById.get(sid) ?? null) : null])) : undefined,
     });
     return { employee: e, shift, days, totals: totals(days) };
   });

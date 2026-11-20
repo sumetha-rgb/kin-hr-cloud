@@ -1,8 +1,8 @@
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { employeePhotos, employees, users, warnings, webauthnCredentials } from "@/db/schema";
+import { employeeLicenses, employeePhotos, employees, employmentContracts, users, warnings, webauthnCredentials } from "@/db/schema";
 import { Icon } from "@/components/icons";
 import { PhotoUploader } from "@/components/photo-uploader";
 import { SubmitButton } from "@/components/submit-button";
@@ -14,29 +14,27 @@ import { isActiveWarning, WARNING_STATUS, WARNING_TONE, warningStatus } from "@/
 import { getWarningConfig } from "@/lib/warning-config";
 import { removeCredential, saveAccount } from "../actions";
 import { EmployeeForm } from "../employee-form";
+import { LicenseForm, LicenseList } from "../licenses/license-ui";
 
-export default async function EmployeePage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ ok?: string; error?: string }>;
-}) {
+export default async function EmployeePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
   const me = await requireRole("admin", "hr");
   const { id } = await params;
   const sp = await searchParams;
-  const [e] = await db.select().from(employees).where(eq(employees.id, Number(id)));
+  const [e] = await db
+    .select()
+    .from(employees)
+    .where(eq(employees.id, Number(id)));
   if (!e) notFound();
-  const [[account], [photo], warns] = await Promise.all([
+  const [[account], [photo], warns, licenses, contracts] = await Promise.all([
     db.select().from(users).where(eq(users.employeeId, e.id)),
     db.select({ at: employeePhotos.updatedAt }).from(employeePhotos).where(eq(employeePhotos.employeeId, e.id)),
     db.select().from(warnings).where(eq(warnings.employeeId, e.id)).orderBy(desc(warnings.incidentDate)),
+    db.select().from(employeeLicenses).where(eq(employeeLicenses.employeeId, e.id)).orderBy(asc(employeeLicenses.expiresAt)),
+    db.select().from(employmentContracts).where(eq(employmentContracts.employeeId, e.id)).orderBy(desc(employmentContracts.contractDate)),
   ]);
   const activeWarns = warns.filter((w) => isActiveWarning(w));
   const wcfg = await getWarningConfig();
-  const creds = account
-    ? await db.select().from(webauthnCredentials).where(eq(webauthnCredentials.userId, account.id)).orderBy(desc(webauthnCredentials.createdAt))
-    : [];
+  const creds = account ? await db.select().from(webauthnCredentials).where(eq(webauthnCredentials.userId, account.id)).orderBy(desc(webauthnCredentials.createdAt)) : [];
   const roleOptions = Object.entries(ROLE_LABEL)
     .filter(([r]) => r !== "admin" || me.role === "admin")
     .map(([value, label]) => ({ value, label }));
@@ -46,7 +44,11 @@ export default async function EmployeePage({
       <PageHeader
         title={fullName(e)}
         subtitle={`รหัส ${e.code}`}
-        actions={<LinkButton href={`/attendance/me?employee=${e.id}`} variant="secondary">ดูเวลาทำงาน</LinkButton>}
+        actions={
+          <LinkButton href={`/attendance/me?employee=${e.id}`} variant="secondary">
+            ดูเวลาทำงาน
+          </LinkButton>
+        }
       />
       <Flash ok={sp.ok} error={sp.error} />
       <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
@@ -59,7 +61,10 @@ export default async function EmployeePage({
             title="ประวัติใบเตือน"
             subtitle={warns.length ? `มีผลอยู่ ${activeWarns.length} ใบ · ทั้งหมด ${warns.length} ใบ` : "ยังไม่เคยได้รับใบเตือน"}
             actions={
-              <Link href={`/warnings/new?employee=${e.id}`} className="inline-flex items-center gap-1 rounded-full border border-brand-200 px-3 py-1 text-xs font-medium text-brand-800 hover:bg-brand-50">
+              <Link
+                href={`/warnings/new?employee=${e.id}`}
+                className="inline-flex items-center gap-1 rounded-full border border-brand-200 px-3 py-1 text-xs font-medium text-brand-800 hover:bg-brand-50"
+              >
                 <Icon name="plus" className="size-3.5" />
                 ออกใบเตือน
               </Link>
@@ -71,7 +76,10 @@ export default async function EmployeePage({
                   const st = warningStatus(w);
                   return (
                     <li key={w.id}>
-                      <Link href={`/warnings/${w.id}`} className="flex items-center justify-between gap-2 rounded-2xl border border-brand-100 p-3 text-sm hover:bg-brand-50/60">
+                      <Link
+                        href={`/warnings/${w.id}`}
+                        className="flex items-center justify-between gap-2 rounded-2xl border border-brand-100 p-3 text-sm hover:bg-brand-50/60"
+                      >
                         <span className="min-w-0">
                           <span className="block font-medium text-brand-900">{w.category}</span>
                           <span className="block text-xs text-stone-500">
@@ -111,6 +119,40 @@ export default async function EmployeePage({
               </div>
             </form>
           </Card>
+
+          <Card title="สัญญาจ้าง" actions={<MoreLink href={`/contracts/new?employee=${e.id}`}>+ ออกสัญญา</MoreLink>}>
+            {contracts.length === 0 ? (
+              <p className="text-sm text-stone-500">ยังไม่มีสัญญาจ้างในระบบ</p>
+            ) : (
+              <ul className="divide-y divide-brand-100">
+                {contracts.map((c) => (
+                  <li key={c.id}>
+                    <Link href={`/contracts/${c.id}`} className="flex items-center justify-between gap-2 py-2 text-sm hover:text-brand-900">
+                      <span className="min-w-0">
+                        <span className="block font-medium text-brand-900">{c.terms.name}</span>
+                        <span className="text-xs text-stone-500">
+                          ทำสัญญา {fmtDate(c.contractDate)} · {c.kind === "permanent" ? "ประจำ" : "ชั่วคราว"}
+                        </span>
+                      </span>
+                      <Icon name="chevronRight" className="size-4 shrink-0 text-brand-400" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          <div id="licenses" className="scroll-mt-24">
+            <Card title="ใบอนุญาต / ใบรับรอง" subtitle="เตือนพนักงานและ HR ก่อนหมดอายุ 60 / 30 / 7 วัน">
+              <LicenseList items={licenses} back={`/personnel/${e.id}#licenses`} />
+              <details className="mt-3 rounded-2xl bg-brand-50/60 p-3">
+                <summary className="cursor-pointer text-sm font-medium text-brand-800">+ เพิ่มใบอนุญาต</summary>
+                <div className="mt-3">
+                  <LicenseForm employeeId={e.id} back={`/personnel/${e.id}#licenses`} />
+                </div>
+              </details>
+            </Card>
+          </div>
 
           <Card title="อุปกรณ์สแกนนิ้ว">
             {!account ? (

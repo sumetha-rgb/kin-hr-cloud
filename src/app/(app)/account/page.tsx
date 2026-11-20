@@ -1,8 +1,11 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, ne } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import Link from "next/link";
 import { db } from "@/db";
-import { branches, departments, employees, positions, shifts, warnings, webauthnCredentials } from "@/db/schema";
+import { branches, departments, employeeLicenses, employees, employmentContracts, positions, shifts, users, warnings, webauthnCredentials } from "@/db/schema";
+import { EmployeePicker } from "@/components/employee-picker";
+import { teamOf } from "@/lib/approval";
+import { licenseStatus } from "@/lib/license";
 import { Avatar } from "@/components/avatar";
 import { PhotoUploader } from "@/components/photo-uploader";
 import { PushToggle } from "@/components/push-toggle";
@@ -10,11 +13,11 @@ import { SubmitButton } from "@/components/submit-button";
 import { Badge, Card, Field, Flash, Input, InfoRow, MoreLink, Textarea } from "@/components/ui";
 import { isHR, requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/payroll-run";
-import { fmtDate, fmtDateTime } from "@/lib/time";
+import { bkkDateStr, fmtDate, fmtDateTime } from "@/lib/time";
 import { fullName, ROLE_LABEL, STATUS_LABEL } from "@/lib/util";
 import { WARNING_STATUS, warningStatus } from "@/lib/warning";
 import { getWarningConfig } from "@/lib/warning-config";
-import { changePassword, saveMyProfile } from "./actions";
+import { changePassword, saveMyProfile, setActingApprover } from "./actions";
 
 export const metadata = { title: "โปรไฟล์ของฉัน" };
 
@@ -36,11 +39,33 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           .leftJoin(mgr, eq(employees.managerId, mgr.id))
           .where(eq(employees.id, u.employeeId))
       : Promise.resolve([]),
-    u.employeeId ? db.select().from(warnings).where(and(eq(warnings.employeeId, u.employeeId), isNull(warnings.voidedAt))).orderBy(desc(warnings.incidentDate)) : Promise.resolve([]),
+    u.employeeId
+      ? db
+          .select()
+          .from(warnings)
+          .where(and(eq(warnings.employeeId, u.employeeId), isNull(warnings.voidedAt)))
+          .orderBy(desc(warnings.incidentDate))
+      : Promise.resolve([]),
   ]);
   const e = row?.e;
-  const wcfg = await getWarningConfig();
-  const canEdit = settings.selfProfileEdit || isHR(u); // HR ปิดได้ที่ ดูแลระบบ → ตั้งค่าระบบ
+  const [wcfg, team, licenses, myContracts] = await Promise.all([
+    getWarningConfig(),
+    u.employeeId ? teamOf(u.employeeId) : Promise.resolve([]),
+    u.employeeId ? db.select().from(employeeLicenses).where(eq(employeeLicenses.employeeId, u.employeeId)).orderBy(asc(employeeLicenses.expiresAt)) : Promise.resolve([]),
+    u.employeeId ? db.select().from(employmentContracts).where(eq(employmentContracts.employeeId, u.employeeId)).orderBy(desc(employmentContracts.contractDate)) : Promise.resolve([]),
+  ]);
+  // คนที่เลือกเป็นผู้อนุมัติแทนได้: หัวหน้างาน / HR / ผู้ดูแลระบบ (ต้องเห็นเมนูอนุมัติ)
+  const actingOptions = team.length
+    ? await db
+        .select({ e: employees })
+        .from(users)
+        .innerJoin(employees, eq(users.employeeId, employees.id))
+        .where(and(ne(users.role, "employee"), ne(employees.id, u.employeeId!), ne(employees.status, "resigned")))
+        .orderBy(asc(employees.code))
+    : [];
+  const today = bkkDateStr();
+  const actingActive = !!e?.actingApproverId && !!e.actingUntil && e.actingUntil >= today;
+  const canEdit = true; // พนักงานแก้โปรไฟล์/รูปของตัวเองได้เสมอ
 
   return (
     <>
@@ -79,35 +104,35 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
             <Card title="ข้อมูลส่วนตัว" subtitle={canEdit ? "ข้อมูลส่วนนี้คุณแก้ไขได้เอง" : "ฝ่ายบุคคลปิดการแก้ไขด้วยตนเอง — หากต้องการเปลี่ยน กรุณาติดต่อ HR"}>
               <form action={saveMyProfile}>
                 <fieldset disabled={!canEdit} className="grid gap-4 sm:grid-cols-2">
-                <Field label="ชื่อเล่น">
-                  <Input name="nickname" defaultValue={e.nickname ?? ""} maxLength={40} />
-                </Field>
-                <Field label="เบอร์โทร">
-                  <Input name="phone" type="tel" inputMode="tel" defaultValue={e.phone ?? ""} />
-                </Field>
-                <Field label="อีเมล">
-                  <Input name="email" type="email" defaultValue={e.email ?? ""} />
-                </Field>
-                <Field label="LINE ID">
-                  <Input name="lineId" defaultValue={e.lineId ?? ""} autoCapitalize="none" />
-                </Field>
-                <Field label="ที่อยู่ปัจจุบัน" className="sm:col-span-2">
-                  <Textarea name="address" rows={2} defaultValue={e.address ?? ""} />
-                </Field>
-                <Field label="ผู้ติดต่อกรณีฉุกเฉิน">
-                  <Input name="emergencyName" placeholder="ชื่อ (ความสัมพันธ์)" defaultValue={e.emergencyName ?? ""} />
-                </Field>
-                <Field label="เบอร์ผู้ติดต่อฉุกเฉิน">
-                  <Input name="emergencyPhone" type="tel" inputMode="tel" defaultValue={e.emergencyPhone ?? ""} />
-                </Field>
-                <Field label="แนะนำตัวสั้นๆ" hint="ไม่เกิน 300 ตัวอักษร · แสดงบนโปรไฟล์ของคุณ" className="sm:col-span-2">
-                  <Textarea name="bio" rows={2} maxLength={300} defaultValue={e.bio ?? ""} />
-                </Field>
-                {canEdit && (
-                  <div className="sm:col-span-2">
-                    <SubmitButton>บันทึกโปรไฟล์</SubmitButton>
-                  </div>
-                )}
+                  <Field label="ชื่อเล่น">
+                    <Input name="nickname" defaultValue={e.nickname ?? ""} maxLength={40} />
+                  </Field>
+                  <Field label="เบอร์โทร">
+                    <Input name="phone" type="tel" inputMode="tel" defaultValue={e.phone ?? ""} />
+                  </Field>
+                  <Field label="อีเมล">
+                    <Input name="email" type="email" defaultValue={e.email ?? ""} />
+                  </Field>
+                  <Field label="LINE ID">
+                    <Input name="lineId" defaultValue={e.lineId ?? ""} autoCapitalize="none" />
+                  </Field>
+                  <Field label="ที่อยู่ปัจจุบัน" className="sm:col-span-2">
+                    <Textarea name="address" rows={2} defaultValue={e.address ?? ""} />
+                  </Field>
+                  <Field label="ผู้ติดต่อกรณีฉุกเฉิน">
+                    <Input name="emergencyName" placeholder="ชื่อ (ความสัมพันธ์)" defaultValue={e.emergencyName ?? ""} />
+                  </Field>
+                  <Field label="เบอร์ผู้ติดต่อฉุกเฉิน">
+                    <Input name="emergencyPhone" type="tel" inputMode="tel" defaultValue={e.emergencyPhone ?? ""} />
+                  </Field>
+                  <Field label="แนะนำตัวสั้นๆ" hint="ไม่เกิน 300 ตัวอักษร · แสดงบนโปรไฟล์ของคุณ" className="sm:col-span-2">
+                    <Textarea name="bio" rows={2} maxLength={300} defaultValue={e.bio ?? ""} />
+                  </Field>
+                  {canEdit && (
+                    <div className="sm:col-span-2">
+                      <SubmitButton>บันทึกโปรไฟล์</SubmitButton>
+                    </div>
+                  )}
                 </fieldset>
               </form>
             </Card>
@@ -129,6 +154,67 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
               </dl>
             </Card>
           )}
+
+          {team.length > 0 && (
+            <Card title="ผู้อนุมัติแทนระหว่างลา" subtitle={`คุณเป็นหัวหน้าของ ${team.length} คน — ตั้งคนอนุมัติแทนตอนลา คำขอจะได้ไม่ค้าง (คุณยังอนุมัติเองได้ตามปกติ)`}>
+              <form action={setActingApprover} key={`${e?.actingApproverId}-${e?.actingUntil}`} className="grid gap-3 sm:grid-cols-[1fr_180px_auto] sm:items-end">
+                <div>
+                  <span className="mb-1 block text-sm font-medium text-brand-800">ผู้อนุมัติแทน</span>
+                  <EmployeePicker
+                    name="actingApproverId"
+                    allowClear="ไม่มี"
+                    defaultValue={actingActive ? (e?.actingApproverId ?? undefined) : undefined}
+                    options={actingOptions.map(({ e: x }) => ({ id: x.id, code: x.code, name: fullName(x), nickname: x.nickname }))}
+                  />
+                </div>
+                <Field label="ถึงวันที่">
+                  <Input name="actingUntil" type="date" min={today} defaultValue={actingActive ? (e?.actingUntil ?? "") : ""} />
+                </Field>
+                <SubmitButton>บันทึก</SubmitButton>
+              </form>
+              {actingActive && <p className="mt-2 text-sm text-emerald-700">กำลังมีผล ถึง {fmtDate(e!.actingUntil)}</p>}
+            </Card>
+          )}
+
+          {myContracts.length > 0 && (
+            <Card title="สัญญาจ้างของฉัน">
+              <ul className="divide-y divide-brand-100">
+                {myContracts.map((c) => (
+                  <li key={c.id}>
+                    <Link href={`/contracts/${c.id}`} className="flex items-center justify-between gap-2 py-2.5 text-sm">
+                      <span>
+                        <span className="block font-medium text-brand-900">สัญญาจ้าง {c.terms.name}</span>
+                        <span className="text-xs text-stone-500">ทำสัญญาเมื่อ {fmtDate(c.contractDate)}</span>
+                      </span>
+                      <span className="text-brand-700">เปิดดู</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
+          {licenses.length > 0 && (
+            <Card title="ใบอนุญาต / ใบรับรองของฉัน" subtitle="ระบบเตือนล่วงหน้าก่อนหมดอายุ 60 / 30 / 7 วัน">
+              <ul className="divide-y divide-brand-100">
+                {licenses.map((l) => {
+                  const st = licenseStatus(l.expiresAt);
+                  return (
+                    <li key={l.id} className="flex items-center justify-between gap-3 py-2.5">
+                      <span className="min-w-0">
+                        <span className="block font-medium text-brand-900">{l.name}</span>
+                        <span className="text-xs text-stone-500">
+                          {l.licenseNo ? `เลขที่ ${l.licenseNo} · ` : ""}
+                          {l.expiresAt ? `หมดอายุ ${fmtDate(l.expiresAt)}` : "ไม่มีวันหมดอายุ"}
+                        </span>
+                      </span>
+                      <Badge tone={st.tone}>{st.label}</Badge>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Card>
+          )}
         </div>
 
         <div className="space-y-5">
@@ -144,7 +230,10 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
                     const st = warningStatus(w);
                     return (
                       <li key={w.id}>
-                        <Link href={`/warnings/${w.id}`} className="flex items-center justify-between gap-2 rounded-2xl border border-brand-100 p-3 text-sm hover:bg-brand-50/60">
+                        <Link
+                          href={`/warnings/${w.id}`}
+                          className="flex items-center justify-between gap-2 rounded-2xl border border-brand-100 p-3 text-sm hover:bg-brand-50/60"
+                        >
                           <span className="min-w-0">
                             <span className="block font-medium text-brand-900">{w.category}</span>
                             <span className="block text-xs text-stone-500">

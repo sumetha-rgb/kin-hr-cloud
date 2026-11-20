@@ -16,7 +16,10 @@ export default async function RunPage({ params, searchParams }: { params: Promis
   const u = await requireRole("admin", "hr");
   const { id } = await params;
   const sp = await searchParams;
-  const [run] = await db.select().from(payrollRuns).where(eq(payrollRuns.id, Number(id)));
+  const [run] = await db
+    .select()
+    .from(payrollRuns)
+    .where(eq(payrollRuns.id, Number(id)));
   if (!run) notFound();
   const items = await db
     .select({ i: payrollItems, e: employees })
@@ -42,6 +45,9 @@ export default async function RunPage({ params, searchParams }: { params: Promis
             </a>
             <a href={`/api/reports/sso?runId=${run.id}`} className={btn.secondary}>
               ประกันสังคม
+            </a>
+            <a href={`/api/reports/pnd1?runId=${run.id}`} className={btn.secondary}>
+              ภ.ง.ด.1
             </a>
             {draft ? (
               <>
@@ -158,7 +164,10 @@ export default async function RunPage({ params, searchParams }: { params: Promis
               </td>
               <td className="text-base font-semibold text-brand-900 tabular-nums">{fmtMoney(i.net)}</td>
               <td className="text-right">
-                <Link href={`/payroll/${run.id}/slip/${e.id}`} className="inline-flex items-center gap-1 rounded-full border border-brand-200 px-3 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50">
+                <Link
+                  href={`/payroll/${run.id}/slip/${e.id}`}
+                  className="inline-flex items-center gap-1 rounded-full border border-brand-200 px-3 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50"
+                >
                   <Icon name="document" className="size-3.5" />
                   สลิป
                 </Link>

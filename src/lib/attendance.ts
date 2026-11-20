@@ -54,22 +54,26 @@ export function summarizeDays(opts: {
   employedFrom?: string | null;
   employedTo?: string | null;
   now?: Date;
+  /** ตารางเวรรายวัน: มีวันนั้น = ใช้กะนี้ (null = หยุด) แทนกะประจำ */
+  roster?: Map<string, ShiftLike | null>;
 }): DayRecord[] {
-  const shift = opts.shift ?? DEFAULT_SHIFT;
+  const baseShift = opts.shift ?? DEFAULT_SHIFT;
+  const shiftOn = (d: string): ShiftLike | null => (opts.roster?.has(d) ? (opts.roster.get(d) ?? null) : isWorkDay(d, baseShift) ? baseShift : null);
   const now = opts.now ?? new Date();
   const today = bkkDateStr(now);
 
   // คิดสัดส่วนวันลาต่อวัน (เช่น ลาครึ่งวัน 0.5)
   const leaveByDate = new Map<string, { name: string; paid: boolean; portion: number }>();
   for (const l of opts.leaves) {
-    const dates = eachDate(l.startDate, l.endDate).filter((d) => isWorkDay(d, shift) && !opts.holidays.has(d));
+    const dates = eachDate(l.startDate, l.endDate).filter((d) => shiftOn(d) && !opts.holidays.has(d));
     if (!dates.length) continue;
     const portion = Math.min(1, l.days / dates.length);
     for (const d of dates) leaveByDate.set(d, { name: l.name, paid: l.paid, portion });
   }
 
   return eachDate(opts.start, opts.end).map((date): DayRecord => {
-    const base: DayRecord = { date, workDay: isWorkDay(date, shift), scheduled: false, lateMinutes: 0, earlyMinutes: 0, workedMinutes: 0, status: "off" };
+    const shift = shiftOn(date) ?? baseShift;
+    const base: DayRecord = { date, workDay: !!shiftOn(date), scheduled: false, lateMinutes: 0, earlyMinutes: 0, workedMinutes: 0, status: "off" };
     if ((opts.employedFrom && date < opts.employedFrom) || (opts.employedTo && date > opts.employedTo)) {
       return { ...base, status: "not_employed" };
     }

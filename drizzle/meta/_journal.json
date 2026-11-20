@@ -43,6 +43,27 @@
       "when": 1795148492627,
       "tag": "0005_dept_head_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795156060421,
+      "tag": "0006_rosters_licenses_certificates",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795156155745,
+      "tag": "0007_tax_opening_balances",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795162075469,
+      "tag": "0008_employment_contracts",
+      "breakpoints": true
     }
   ]
 }

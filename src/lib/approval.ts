@@ -1,7 +1,8 @@
-import { and, asc, eq, inArray, ne, or, type SQL } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNotNull, lte, ne, or, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { departments, employeePhotos, employees, leaveTypes, requests, users } from "@/db/schema";
 import { isHR, type CurrentUser } from "./auth";
+import { bkkDateStr } from "./time";
 
 /**
  * ลำดับการอนุมัติ
@@ -42,23 +43,55 @@ export async function headOf(employeeId: number): Promise<number | null> {
   return row ? headFrom(row, row.deptHead) : null;
 }
 
+/** ผู้อนุมัติแทนที่ยังมีผลวันนี้: Map<หัวหน้า, ผู้อนุมัติแทน> (หัวหน้าตั้งเองระหว่างลา) */
+export async function actingMap(): Promise<Map<number, number>> {
+  const rows = await db
+    .select({ id: employees.id, acting: employees.actingApproverId })
+    .from(employees)
+    .where(and(isNotNull(employees.actingApproverId), gte(employees.actingUntil, bkkDateStr())));
+  return new Map(rows.map((r) => [r.id, r.acting!]));
+}
+
+/** หัวหน้าขั้นที่ 1 + ผู้อนุมัติแทน (ถ้าหัวหน้าตั้งไว้และยังไม่หมดเวลา) */
+export async function approversOf(employeeId: number): Promise<{ headId: number | null; actingId: number | null }> {
+  const headId = await headOf(employeeId);
+  if (!headId) return { headId, actingId: null };
+  const acting = (await actingMap()).get(headId) ?? null;
+  return { headId, actingId: acting && acting !== employeeId ? acting : null };
+}
+
 export function stageOf(r: { status: string; headApprovedAt: Date | null }, headId: number | null): Stage {
   if (r.status !== "pending") return "done";
   return headId && !r.headApprovedAt ? "head" : "hr";
 }
 
 /** ผู้ใช้คนนี้ตัดสินคำขอนี้ได้ไหม (ณ ขั้นปัจจุบัน) */
-export function canDecide(u: Pick<CurrentUser, "role" | "employeeId">, r: { employeeId: number; status: string; headApprovedAt: Date | null }, headId: number | null) {
+export function canDecide(
+  u: Pick<CurrentUser, "role" | "employeeId">,
+  r: { employeeId: number; status: string; headApprovedAt: Date | null },
+  headId: number | null,
+  actingId: number | null = null,
+) {
   if (u.employeeId === r.employeeId) return false; // ห้ามอนุมัติของตัวเอง
   const st = stageOf(r, headId);
-  if (st === "head") return !!u.employeeId && u.employeeId === headId;
+  // ขั้นหัวหน้า: หัวหน้าเอง หรือผู้อนุมัติแทนระหว่างหัวหน้าลา
+  if (st === "head") return !!u.employeeId && (u.employeeId === headId || u.employeeId === actingId);
   if (st === "hr") return u.role === "admin" || u.role === "hr";
   return false;
 }
 
 /** คำขอที่รออยู่ทั้งหมด + ขั้นปัจจุบัน + หัวหน้าที่ต้องอนุมัติ (ใช้คัดว่ารอใคร) */
 export async function pendingWithStage() {
-  const rows = await db
+  const [rows, acting] = await Promise.all([pendingRows(), actingMap()]);
+  return rows.map((x) => {
+    const headId = headFrom(x.e, x.deptHead);
+    const a = headId ? (acting.get(headId) ?? null) : null;
+    return { ...x, headId, actingId: a && a !== x.e.id ? a : null, stage: stageOf(x.r, headId) };
+  });
+}
+
+function pendingRows() {
+  return db
     .select({
       r: requests,
       e: employees,
@@ -73,15 +106,11 @@ export async function pendingWithStage() {
     .leftJoin(leaveTypes, eq(requests.leaveTypeId, leaveTypes.id))
     .where(eq(requests.status, "pending"))
     .orderBy(asc(requests.createdAt));
-  return rows.map((x) => {
-    const headId = headFrom(x.e, x.deptHead);
-    return { ...x, headId, stage: stageOf(x.r, headId) };
-  });
 }
 
 /** คำขอที่รอ "ผู้ใช้คนนี้" ตัดสิน */
 export async function pendingForUser(u: CurrentUser) {
-  return (await pendingWithStage()).filter((x) => canDecide(u, x.r, x.headId));
+  return (await pendingWithStage()).filter((x) => canDecide(u, x.r, x.headId, x.actingId));
 }
 
 /** ประวัติคำขอที่ผู้ใช้เกี่ยวข้อง: HR = ทั้งหมด · หัวหน้า = ที่ตัวเองอนุมัติ/ไม่อนุมัติ (ขั้นใดก็ได้) */
@@ -133,4 +162,40 @@ export async function teamOf(employeeId: number): Promise<number[]> {
     .from(employees)
     .where(and(ne(employees.id, employeeId), or(eq(employees.managerId, employeeId), depts.length ? inArray(employees.departmentId, depts) : undefined)));
   return rows.map((r) => r.id);
+}
+
+/**
+ * ใบลาของคนแผนกเดียวกันที่วันทับกับใบลาที่รออนุมัติ (อนุมัติแล้ว + รออนุมัติ)
+ * ใช้เตือนหัวหน้า/HR ก่อนกดอนุมัติ ว่าวันนั้นแผนกจะขาดคนกี่คน
+ */
+export async function leaveOverlaps(items: Array<{ id: number; employeeId: number; departmentId: number | null; startDate: string | null; endDate: string | null }>) {
+  const leaves = items.filter((x) => x.startDate && x.endDate && x.departmentId);
+  const out = new Map<number, Array<{ name: string; startDate: string; endDate: string; status: string }>>();
+  if (!leaves.length) return out;
+  const min = leaves.reduce((a, x) => (x.startDate! < a ? x.startDate! : a), leaves[0].startDate!);
+  const max = leaves.reduce((a, x) => (x.endDate! > a ? x.endDate! : a), leaves[0].endDate!);
+  const others = await db
+    .select({ id: requests.id, employeeId: requests.employeeId, startDate: requests.startDate, endDate: requests.endDate, status: requests.status, e: employees })
+    .from(requests)
+    .innerJoin(employees, eq(requests.employeeId, employees.id))
+    .where(
+      and(
+        eq(requests.type, "leave"),
+        inArray(requests.status, ["approved", "pending"]),
+        lte(requests.startDate, max),
+        gte(requests.endDate, min),
+        inArray(employees.departmentId, [...new Set(leaves.map((x) => x.departmentId!))]),
+      ),
+    );
+  for (const x of leaves) {
+    const hits = others.filter(
+      (o) => o.id !== x.id && o.employeeId !== x.employeeId && o.e.departmentId === x.departmentId && o.startDate! <= x.endDate! && o.endDate! >= x.startDate!,
+    );
+    if (hits.length)
+      out.set(
+        x.id,
+        hits.map((o) => ({ name: `${o.e.firstName} ${o.e.lastName}`, startDate: o.startDate!, endDate: o.endDate!, status: o.status })),
+      );
+  }
+  return out;
 }

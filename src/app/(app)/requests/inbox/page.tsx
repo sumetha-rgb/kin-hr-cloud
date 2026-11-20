@@ -5,9 +5,9 @@ import { employees, users } from "@/db/schema";
 import { Icon } from "@/components/icons";
 import { SubmitButton } from "@/components/submit-button";
 import { Badge, Card, Flash, Input } from "@/components/ui";
-import { canDecide, HEAD_IS_FINAL, pendingWithStage } from "@/lib/approval";
+import { canDecide, HEAD_IS_FINAL, leaveOverlaps, pendingWithStage } from "@/lib/approval";
 import { isHR, requireUser } from "@/lib/auth";
-import { fmtDateTime } from "@/lib/time";
+import { fmtDate, fmtDateTime } from "@/lib/time";
 import { fullName } from "@/lib/util";
 import { decideRequest } from "../actions";
 import { RequestSummary, TypeBadge } from "../request-detail";
@@ -19,9 +19,9 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
   if (u.role === "employee") redirect("/requests/mine");
   const sp = await searchParams;
   const all = await pendingWithStage();
-  const mine = all.filter((x) => canDecide(u, x.r, x.headId));
+  const mine = all.filter((x) => canDecide(u, x.r, x.headId, x.actingId));
   // HR เห็นคำขอที่ยังค้างอยู่ที่หัวหน้าแผนก (ดูอย่างเดียว — ข้ามขั้นไม่ได้)
-  const waitingHead = isHR(u) ? all.filter((x) => x.stage === "head" && !canDecide(u, x.r, x.headId)) : [];
+  const waitingHead = isHR(u) ? all.filter((x) => x.stage === "head" && !canDecide(u, x.r, x.headId, x.actingId)) : [];
 
   // ชื่อหัวหน้า / ผู้อนุมัติขั้นแรก
   const headIds = [...new Set(all.map((x) => x.headId).filter((v): v is number => !!v))];
@@ -37,6 +37,12 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
       : Promise.resolve([]),
   ]);
   const headName = new Map(heads.map((h) => [h.id, fullName(h)]));
+  // คนในแผนกเดียวกันที่ลาวันทับกัน (เตือนก่อนอนุมัติ)
+  const overlaps = await leaveOverlaps(
+    mine
+      .filter((x) => x.r.type === "leave")
+      .map((x) => ({ id: x.r.id, employeeId: x.e.id, departmentId: x.e.departmentId, startDate: x.r.startDate, endDate: x.r.endDate })),
+  );
   const approverName = new Map(approvers.map((a) => [a.id, a.first ? `${a.first} ${a.last}` : a.username]));
 
   return (
@@ -51,7 +57,7 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
         </div>
       ) : (
         <div className="space-y-3">
-          {mine.map(({ r, e, leaveName, stage }) => {
+          {mine.map(({ r, e, leaveName, stage, headId, actingId }) => {
             const finalAtHead = stage === "head" && HEAD_IS_FINAL.has(r.type);
             return (
               <div key={r.id} className="rounded-3xl border border-brand-200/80 bg-white p-4 shadow-card sm:p-5">
@@ -66,19 +72,41 @@ export default async function Inbox({ searchParams }: { searchParams: Promise<{ 
                       <RequestSummary r={r} leaveName={leaveName} />
                     </div>
                     {r.reason && <div className="mt-1 text-sm text-stone-500">เหตุผล: {r.reason}</div>}
+                    {overlaps.get(r.id) && (
+                      <div className="mt-2 flex items-start gap-1.5 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">
+                        <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
+                        <span>
+                          ช่วงเดียวกันในแผนกมีคนลา {overlaps.get(r.id)!.length} คน:{" "}
+                          {overlaps
+                            .get(r.id)!
+                            .map(
+                              (o) =>
+                                `${o.name} (${fmtDate(o.startDate)}${o.endDate !== o.startDate ? `–${fmtDate(o.endDate)}` : ""}${o.status === "pending" ? " · รออนุมัติ" : ""})`,
+                            )
+                            .join(", ")}
+                        </span>
+                      </div>
+                    )}
                     <div className="mt-1 text-xs text-stone-400">ยื่นเมื่อ {fmtDateTime(r.createdAt)}</div>
                   </div>
-                  <Badge tone={stage === "head" ? "amber" : "blue"}>{stage === "head" ? (finalAtHead ? "หัวหน้าแผนกอนุมัติ (ขั้นเดียว)" : "ขั้นที่ 1: หัวหน้าแผนก") : "ขั้นสุดท้าย: HR"}</Badge>
+                  <Badge tone={stage === "head" ? "amber" : "blue"}>
+                    {stage === "head" ? (finalAtHead ? "หัวหน้าแผนกอนุมัติ (ขั้นเดียว)" : "ขั้นที่ 1: หัวหน้าแผนก") : "ขั้นสุดท้าย: HR"}
+                  </Badge>
                 </div>
 
                 {/* ลำดับขั้น */}
                 <ol className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl bg-brand-50/60 px-3 py-2 text-xs text-stone-600">
                   <li className="flex items-center gap-1">
-                    <Icon name={r.headApprovedAt ? "checkCircle" : stage === "head" ? "clock" : "info"} className={r.headApprovedAt ? "size-4 text-emerald-600" : "size-4 text-amber-600"} />
+                    <Icon
+                      name={r.headApprovedAt ? "checkCircle" : stage === "head" ? "clock" : "info"}
+                      className={r.headApprovedAt ? "size-4 text-emerald-600" : "size-4 text-amber-600"}
+                    />
                     {r.headApprovedAt
                       ? `หัวหน้าอนุมัติแล้ว: ${approverName.get(r.headApprovedBy!) ?? "-"} · ${fmtDateTime(r.headApprovedAt)}${r.headNote ? ` · “${r.headNote}”` : ""}`
                       : stage === "head"
-                        ? "รอคุณอนุมัติในฐานะหัวหน้าแผนก"
+                        ? u.employeeId !== headId && u.employeeId === actingId
+                          ? `รอคุณอนุมัติแทน ${headName.get(headId!) ?? "หัวหน้า"} (หัวหน้าลาอยู่)`
+                          : "รอคุณอนุมัติในฐานะหัวหน้าแผนก"
                         : "ไม่มีหัวหน้าแผนก — ส่งตรงถึง HR"}
                   </li>
                   {!finalAtHead && (

@@ -1,4 +1,4 @@
-import { and, asc, count, countDistinct, desc, eq, gte, lt, ne } from "drizzle-orm";
+import { and, asc, count, countDistinct, desc, eq, gte, inArray, lt, ne } from "drizzle-orm";
 import Link from "next/link";
 import { db } from "@/db";
 import { attendanceLogs, branches, employeePhotos, employees, leaveTypes, payrollItems, payrollRuns, requests } from "@/db/schema";
@@ -15,6 +15,26 @@ import { fmtMoney, fullName } from "@/lib/util";
 import { RequestSummary, TypeBadge } from "./requests/request-detail";
 
 export const metadata = { title: "หน้าหลัก" };
+
+async function findMissedScanOut(employeeId: number, today: string): Promise<string | null> {
+  const [att] = await loadAttendance({ start: addDays(today, -7), end: addDays(today, -1), employeeIds: [employeeId] });
+  const day = att?.days.findLast((d) => d.firstIn && !d.lastOut);
+  if (!day) return null;
+  const [req] = await db
+    .select({ id: requests.id })
+    .from(requests)
+    .where(
+      and(
+        eq(requests.employeeId, employeeId),
+        eq(requests.type, "time_correction"),
+        inArray(requests.status, ["pending", "approved"]),
+        gte(requests.correctionAt, atBkk(day.date)),
+        lt(requests.correctionAt, atBkk(addDays(day.date, 2))),
+      ),
+    )
+    .limit(1);
+  return req ? null : day.date;
+}
 
 function greeting() {
   const h = Number(bkkTimeStr(new Date()).slice(0, 2));
@@ -40,7 +60,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           .orderBy(attendanceLogs.punchedAt)
       : Promise.resolve([]),
     user.employeeId
-      ? db.select({ n: count() }).from(requests).where(and(eq(requests.employeeId, user.employeeId), eq(requests.status, "pending")))
+      ? db
+          .select({ n: count() })
+          .from(requests)
+          .where(and(eq(requests.employeeId, user.employeeId), eq(requests.status, "pending")))
       : Promise.resolve([{ n: 0 }]),
     user.employeeId
       ? db
@@ -56,10 +79,27 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const lastIn = mine.findLast((l) => l.type === "in");
   const lastOut = mine.findLast((l) => l.type === "out");
   const nextAction = mine.at(-1)?.type === "in" ? "สแกนออกงาน" : "สแกนเข้างาน";
+  // ลืมสแกนออก: วันทำงานล่าสุดใน 7 วันก่อนหน้าที่มีเวลาเข้าแต่ไม่มีเวลาออก และยังไม่ได้ยื่นขอแก้เวลา
+  const missedOut = user.employeeId ? await findMissedScanOut(user.employeeId, today) : null;
 
   return (
     <>
       <Flash ok={sp.ok} error={sp.error} />
+      {missedOut && (
+        <Link
+          href={`/requests/new?type=time_correction&kind=out&date=${missedOut}`}
+          className="mb-5 flex items-center gap-3 rounded-3xl border border-rose-200 bg-gradient-to-r from-rose-50 to-white p-4 shadow-card transition hover:border-rose-300"
+        >
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-rose-100 text-rose-700">
+            <Icon name="clock" className="size-5" />
+          </span>
+          <span className="min-w-0">
+            <span className="block font-medium text-brand-900">วันที่ {fmtDate(missedOut)} คุณสแกนเข้าแต่ไม่ได้สแกนออก</span>
+            <span className="block text-sm text-stone-600">วันนั้นจะถูกนับว่าลงเวลาไม่ครบ — กดเพื่อยื่นขอแก้ไขเวลาออก</span>
+          </span>
+          <Icon name="chevronRight" className="ml-auto size-5 shrink-0 text-rose-400" />
+        </Link>
+      )}
       {settings.announcement && (
         <div role="status" className="mb-5 flex items-start gap-3 rounded-3xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white p-4 shadow-card">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
@@ -100,7 +140,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
         {user.employeeId && (
           <div className="relative mt-5 grid gap-3 sm:grid-cols-[1.4fr_1fr_1fr]">
-            <Link href="/checkin" className="flex items-center gap-4 rounded-3xl bg-white p-4 text-brand-900 shadow-lg shadow-black/20 transition active:scale-[.99] sm:p-5">
+            <Link
+              href="/checkin"
+              className="flex items-center gap-4 rounded-3xl bg-white p-4 text-brand-900 shadow-lg shadow-black/20 transition active:scale-[.99] sm:p-5"
+            >
               <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-700 text-white shadow">
                 <Icon name="finger" className="size-8" />
               </span>
@@ -137,9 +180,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               รออนุมัติจากคุณ <Badge tone="red">{pendingForMe.length}</Badge>
             </span>
           }
-          actions={
-            <MoreLink href="/requests/inbox">ไปอนุมัติ</MoreLink>
-          }
+          actions={<MoreLink href="/requests/inbox">ไปอนุมัติ</MoreLink>}
           className="mb-5"
         >
           <ul className="divide-y divide-brand-100">
@@ -204,7 +245,13 @@ async function HrOverview({ today, from, to }: { today: string; from: Date; to: 
     .slice(-14)
     .map(([date, v]) => {
       const pct = Math.round((v.worked / v.scheduled) * 100);
-      return { key: date, label: `${Number(date.slice(8))}`, value: pct, display: `${pct}%`, detail: `${WEEKDAY_TH[isoWeekday(date)]} ${fmtDate(date)} · มา ${v.worked}/${v.scheduled} คน` };
+      return {
+        key: date,
+        label: `${Number(date.slice(8))}`,
+        value: pct,
+        display: `${pct}%`,
+        detail: `${WEEKDAY_TH[isoWeekday(date)]} ${fmtDate(date)} · มา ${v.worked}/${v.scheduled} คน`,
+      };
     });
   const avg = rate.length ? Math.round(rate.reduce((s, d) => s + d.value, 0) / rate.length) : 0;
   const branchData: BarDatum[] = byBranch.map((b) => ({ key: String(b.id), label: b.name, value: b.n, display: String(b.n), detail: `${b.name} ${b.n} คน` }));
@@ -228,13 +275,7 @@ async function HrOverview({ today, from, to }: { today: string; from: Date; to: 
         </Card>
       </div>
 
-      <Card
-        title="ลงเวลาล่าสุดวันนี้"
-        actions={
-          <MoreLink href="/attendance/board">ดูทั้งหมด</MoreLink>
-        }
-        padded={false}
-      >
+      <Card title="ลงเวลาล่าสุดวันนี้" actions={<MoreLink href="/attendance/board">ดูทั้งหมด</MoreLink>} padded={false}>
         <MobileList empty={recent.length === 0}>
           <ul className="divide-y divide-brand-100">
             {recent.map(({ log, e, branch, photoAt }) => (
@@ -279,4 +320,3 @@ async function HrOverview({ today, from, to }: { today: string; from: Date; to: 
     </>
   );
 }
-

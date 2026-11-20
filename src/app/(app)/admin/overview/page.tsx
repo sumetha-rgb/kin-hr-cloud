@@ -59,14 +59,6 @@ export default async function AdminOverview() {
   const noDevice = Math.max(0, empCount - withDevice);
   const checks: Check[] = [
     {
-      ok: !s.demoLogin,
-      level: "danger",
-      title: s.demoLogin ? "ปุ่มบัญชีทดลองยังเปิดอยู่ที่หน้าเข้าสู่ระบบ" : "ปิดปุ่มบัญชีทดลองแล้ว",
-      detail: "ใครเปิดเว็บก็กดเข้าเป็น HR ได้ทันที — ต้องปิดก่อนใส่ข้อมูลพนักงานจริง",
-      href: "/admin/settings",
-      cta: "ไปปิด",
-    },
-    {
       ok: lockedRows.length === 0,
       level: "danger",
       title: lockedRows.length ? `มี ${lockedRows.length} บัญชีถูกล็อกชั่วคราว (ใส่รหัสผิดเกิน ${LOCK_MAX} ครั้ง)` : "ไม่มีบัญชีถูกล็อก",
@@ -127,16 +119,6 @@ export default async function AdminOverview() {
   const done = checks.filter((c) => c.ok);
   const pct = Math.round((done.length / checks.length) * 100);
 
-  // ฐานข้อมูลที่ใช้อยู่ (ไม่แสดงรหัสผ่าน)
-  const host = (() => {
-    try {
-      return new URL(process.env.DATABASE_URL ?? "").hostname;
-    } catch {
-      return "";
-    }
-  })();
-  const region = host.match(/\.([a-z]{2}-[a-z]+-\d)\.aws/)?.[1] ?? "-";
-  const regionName: Record<string, string> = { "ap-southeast-1": "สิงคโปร์", "us-east-2": "โอไฮโอ สหรัฐฯ", "us-east-1": "เวอร์จิเนีย สหรัฐฯ" };
 
   return (
     <div className="space-y-5">
@@ -189,22 +171,6 @@ export default async function AdminOverview() {
         </Card>
 
         <div className="space-y-5">
-          <Card title="ข้อมูลระบบ">
-            <dl className="space-y-2.5 text-sm">
-              {[
-                ["ฐานข้อมูล", <span key="db" className="font-mono text-xs">{host.split(".")[0]?.replace("-pooler", "") || "-"}</span>],
-                ["ที่ตั้งเซิร์ฟเวอร์ข้อมูล", `${regionName[region] ?? region}`],
-                ["โดเมนสแกนนิ้ว (RP ID)", process.env.WEBAUTHN_RP_ID || "อัตโนมัติตามโดเมนที่เปิด"],
-                ["รูปโปรไฟล์", `${withPhoto}/${empCount} คน`],
-                ["กิจกรรมล่าสุด", last ? fmtDateTime(last.at) : "-"],
-              ].map(([k, v]) => (
-                <div key={String(k)} className="flex items-baseline justify-between gap-3 border-b border-brand-100 pb-2.5 last:border-0 last:pb-0">
-                  <dt className="text-stone-500">{k}</dt>
-                  <dd className="text-right font-medium text-brand-900">{v}</dd>
-                </div>
-              ))}
-            </dl>
-          </Card>
           <Card title="ทางลัด">
             <div className="grid grid-cols-2 gap-2 text-sm">
               {[

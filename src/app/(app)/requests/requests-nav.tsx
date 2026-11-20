@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/ui";
  */
 export function RequestsNav({ canSubmit, approver, hr }: { canSubmit: boolean; approver: boolean; hr: boolean }) {
   const path = usePathname();
-  const approving = path.startsWith("/requests/inbox") || path.startsWith("/requests/history");
+  const approving = path.startsWith("/requests/inbox") || path.startsWith("/requests/history") || path.startsWith("/requests/calendar");
 
   if (approving && approver)
     return (
@@ -20,6 +20,7 @@ export function RequestsNav({ canSubmit, approver, hr }: { canSubmit: boolean; a
         <RouteTabs
           items={[
             { href: "/requests/inbox", label: "รออนุมัติ" },
+            { href: "/requests/calendar", label: "ปฏิทินการลา" },
             { href: "/requests/history", label: "ประวัติการอนุมัติ" },
           ]}
         />

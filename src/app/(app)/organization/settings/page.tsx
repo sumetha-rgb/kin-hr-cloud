@@ -1,6 +1,6 @@
 import { Icon } from "@/components/icons";
 import { SubmitButton } from "@/components/submit-button";
-import { Card, Checkbox, Field, Flash, Input, Textarea } from "@/components/ui";
+import { Card, Field, Flash, Input, Textarea } from "@/components/ui";
 import { getSettings } from "@/lib/payroll-run";
 import { saveSettings } from "../actions";
 
@@ -62,9 +62,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             ตรวจสอบเพดานค่าจ้างตามประกาศสำนักงานประกันสังคมฉบับล่าสุดก่อนคำนวณเงินเดือน (มีแผนปรับเพดานขึ้นเป็นขั้น ๆ)
           </p>
         </Card>
-        <Card title="การลงเวลาและการหักเงิน">
+        <Card title="การลงเวลา" subtitle="มาสายไม่หักเงิน — ระบบบันทึกนาทีที่สายไว้ดูประวัติและออกใบเตือนเท่านั้น">
           <div className="space-y-3">
-            <Checkbox name="deductLate" label="หักเงินเมื่อมาสาย (คิดตามนาทีจากค่าจ้างรายชั่วโมง)" defaultChecked={s.deductLate} />
             <Field label="ความแม่นยำ GPS ที่ยอมรับ (เมตร)" hint="ถ้า GPS มือถือคลาดเคลื่อนมากกว่านี้ จะไม่ให้ลงเวลา" className="max-w-xs">
               <Input name="maxGpsAccuracyM" type="number" min={10} defaultValue={s.maxGpsAccuracyM} />
             </Field>
