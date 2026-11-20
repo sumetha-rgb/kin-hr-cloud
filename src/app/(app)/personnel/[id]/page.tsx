@@ -10,7 +10,8 @@ import { Badge, Card, Checkbox, Field, Flash, Input, LinkButton, MoreLink, PageH
 import { requireRole } from "@/lib/auth";
 import { fmtDate, fmtDateTime } from "@/lib/time";
 import { fullName, ROLE_LABEL } from "@/lib/util";
-import { isActiveWarning, WARNING_LEVEL, WARNING_STATUS, warningStatus } from "@/lib/warning";
+import { isActiveWarning, WARNING_STATUS, WARNING_TONE, warningStatus } from "@/lib/warning";
+import { getWarningConfig } from "@/lib/warning-config";
 import { removeCredential, saveAccount } from "../actions";
 import { EmployeeForm } from "../employee-form";
 
@@ -32,6 +33,7 @@ export default async function EmployeePage({
     db.select().from(warnings).where(eq(warnings.employeeId, e.id)).orderBy(desc(warnings.incidentDate)),
   ]);
   const activeWarns = warns.filter((w) => isActiveWarning(w));
+  const wcfg = await getWarningConfig();
   const creds = account
     ? await db.select().from(webauthnCredentials).where(eq(webauthnCredentials.userId, account.id)).orderBy(desc(webauthnCredentials.createdAt))
     : [];
@@ -76,7 +78,7 @@ export default async function EmployeePage({
                             {fmtDate(w.incidentDate)} · {WARNING_STATUS[st].label}
                           </span>
                         </span>
-                        <Badge tone={st === "voided" || st === "expired" ? "gray" : WARNING_LEVEL[w.level].tone}>{WARNING_LEVEL[w.level].short}</Badge>
+                        <Badge tone={st === "voided" || st === "expired" ? "gray" : WARNING_TONE[w.level]}>{wcfg.level[w.level].name}</Badge>
                       </Link>
                     </li>
                   );

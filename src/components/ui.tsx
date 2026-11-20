@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Children, cloneElement, Fragment, isValidElement } from "react";
 import { cn } from "@/lib/util";
+import { ClickableRows } from "./clickable-rows";
 import { Icon } from "./icons";
 
 /** ลิงก์ข้อความ + ลูกศรไอคอน เช่น "ดูทั้งหมด ›" (ใช้แทนตัวอักษร ›) */
@@ -160,6 +161,11 @@ function labelCells(node: React.ReactNode, labels: string[]): React.ReactNode {
     const el = child as React.ReactElement<{ children?: React.ReactNode }>;
     if (el.type === Fragment) return labelCells(el.props.children, labels);
     if (el.type !== "tr") return el;
+    // แถวที่มี data-href: คลิกได้ทั้งแถว + โฟกัสด้วยคีย์บอร์ดได้
+    const href = (el.props as { "data-href"?: string })["data-href"];
+    const rowProps = href
+      ? { tabIndex: 0, role: "link", className: cn((el.props as { className?: string }).className, "cursor-pointer focus-visible:bg-brand-50 focus-visible:outline-none") }
+      : {};
     let col = 0;
     const cells = Children.map(el.props.children, (td) => {
       if (!isValidElement(td) || td.type !== "td") return td;
@@ -168,7 +174,7 @@ function labelCells(node: React.ReactNode, labels: string[]): React.ReactNode {
       col += props.colSpan ?? 1;
       return cloneElement(td as React.ReactElement<Record<string, unknown>>, { "data-label": label });
     });
-    return cloneElement(el, {}, cells);
+    return cloneElement(el as React.ReactElement<Record<string, unknown>>, rowProps, cells);
   });
 }
 
@@ -180,7 +186,7 @@ function labelCells(node: React.ReactNode, labels: string[]): React.ReactNode {
 export function Table({ head, children, empty, className }: { head: React.ReactNode[]; children: React.ReactNode; empty?: boolean; className?: string }) {
   const labels = head.map((h) => (typeof h === "string" ? h : ""));
   return (
-    <div className={cn("overflow-hidden rounded-3xl border border-brand-200/80 bg-white shadow-card", className)}>
+    <ClickableRows className={cn("overflow-hidden rounded-3xl border border-brand-200/80 bg-white shadow-card", className)}>
       <table className="rtable w-full text-sm">
         <thead className="bg-brand-50/80 text-left text-xs tracking-wide text-brand-700">
           <tr>
@@ -202,7 +208,7 @@ export function Table({ head, children, empty, className }: { head: React.ReactN
           )}
         </tbody>
       </table>
-    </div>
+    </ClickableRows>
   );
 }
 
@@ -248,7 +254,7 @@ export function Flash({ ok, error }: { ok?: string; error?: string }) {
     <div
       role={error ? "alert" : "status"}
       className={cn(
-        "animate-in mb-4 flex items-start gap-2.5 rounded-2xl border px-4 py-3 text-[15px] shadow-card sm:text-sm",
+        "animate-in no-print mb-4 flex items-start gap-2.5 rounded-2xl border px-4 py-3 text-[15px] shadow-card sm:text-sm",
         error ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-200 bg-emerald-50 text-emerald-800",
       )}
     >

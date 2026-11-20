@@ -38,7 +38,7 @@ export default async function BoardPage({ searchParams }: { searchParams: Promis
           label={r.label}
           sublabel={r.single ? (r.from === r.today ? "วันนี้" : undefined) : `${r.days} วัน`}
         />
-        <FilterSelect param="branch" value={sp.branch ?? ""} placeholder="ทุกสาขา" options={br.map((b) => ({ value: b.id, label: b.name }))} className="min-w-44 flex-1 sm:flex-none" />
+        <FilterSelect param="branch" value={sp.branch ?? ""} label="สาขา" options={br.map((b) => ({ value: b.id, label: b.name }))} className="min-w-44 flex-1 sm:flex-none" />
         <span className="ml-auto hidden px-3 text-sm text-stone-500 md:inline">{rows.length} คน</span>
       </FilterBar>
 
@@ -91,7 +91,7 @@ function SingleDay({ rows, date, branchName }: { rows: Rows; date: string; branc
       <DesktopOnly>
         <Table head={["รหัส", "พนักงาน", "สาขา", "กะ", "เข้า", "ออก", "ชั่วโมงงาน", "สถานะ"]} empty={!rows.length}>
           {rows.map(({ employee: e, shift, days: [d] }) => (
-            <tr key={e.id}>
+            <tr key={e.id} data-href={`/attendance/me?employee=${e.id}&month=${date.slice(0, 7)}`}>
               <td>{e.code}</td>
               <td>
                 <Link href={`/attendance/me?employee=${e.id}&month=${date.slice(0, 7)}`} className="text-brand-600">
@@ -166,7 +166,7 @@ function RangeSummary({ rows, from, branchName }: { rows: Rows; from: string; br
       <DesktopOnly>
         <Table head={["รหัส", "พนักงาน", "สาขา", "มา / ต้องทำงาน", "สาย", "ขาด", "ลา", "ชั่วโมงรวม", "อัตรามา"]} empty={!list.length}>
           {list.map(({ employee: e, t, minutes, rate }) => (
-            <tr key={e.id}>
+            <tr key={e.id} data-href={`/attendance/me?employee=${e.id}&month=${month}`}>
               <td>{e.code}</td>
               <td>
                 <Link href={`/attendance/me?employee=${e.id}&month=${month}`} className="text-brand-600">

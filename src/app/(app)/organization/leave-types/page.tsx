@@ -16,11 +16,15 @@ export default async function LeaveTypesPage({ searchParams }: { searchParams: P
     <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
       <div>
         <Flash ok={sp.ok} error={sp.error} />
-        <Table head={["รหัส", "ประเภท", "สิทธิ์/ปี", "ค่าจ้าง", ""]} empty={!rows.length}>
+        <Table head={["ประเภทการลา", "สิทธิ์/ปี", "ค่าจ้าง", ""]} empty={!rows.length}>
           {rows.map((l) => (
-            <tr key={l.id}>
-              <td className="font-medium">{l.code}</td>
-              <td>{l.name}</td>
+            <tr key={l.id} data-href={`/organization/leave-types?edit=${l.id}`}>
+              <td>
+                <span className="inline-flex items-center gap-2.5">
+                  <span className="inline-flex h-6 min-w-9 items-center justify-center rounded-lg bg-brand-100 px-1.5 text-xs font-semibold tracking-wide text-brand-800">{l.code}</span>
+                  <span className="font-medium text-brand-900">{l.name}</span>
+                </span>
+              </td>
               <td>{l.daysPerYear ? `${l.daysPerYear} วัน` : "ไม่จำกัด"}</td>
               <td>{l.paid ? <Badge tone="green">ได้รับค่าจ้าง</Badge> : <Badge tone="amber">ไม่ได้รับ</Badge>}</td>
               <td className="text-right whitespace-nowrap">
@@ -42,8 +46,8 @@ export default async function LeaveTypesPage({ searchParams }: { searchParams: P
         <form action={saveLeaveType} className="space-y-3" key={edit?.id ?? "new"}>
           {edit && <input type="hidden" name="id" value={edit.id} />}
           <div className="grid grid-cols-3 gap-3">
-            <Field label="รหัส">
-              <Input name="code" required defaultValue={edit?.code} />
+            <Field label="ตัวย่อ" hint="2-4 ตัว เช่น SL">
+              <Input name="code" required maxLength={4} autoCapitalize="characters" className="uppercase" defaultValue={edit?.code} />
             </Field>
             <Field label="ชื่อ" className="col-span-2">
               <Input name="name" required defaultValue={edit?.name} />

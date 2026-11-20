@@ -1,17 +1,17 @@
 "use server";
 
-import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
 import { attendanceLogs, employees, holidays, leaveTypes, requests, shifts } from "@/db/schema";
 import { DEFAULT_SHIFT, isWorkDay } from "@/lib/attendance";
 import { audit } from "@/lib/audit";
-import { canApprove } from "@/lib/approval";
+import { canDecide, HEAD_IS_FINAL, headOf, stageOf } from "@/lib/approval";
 import { requireUser } from "@/lib/auth";
 import { parseForm, zBool, zDate, zTime } from "@/lib/form";
 import { hrUserIds, notify, userIdsOfEmployees } from "@/lib/notify";
-import { atBkk, eachDate } from "@/lib/time";
+import { atBkk, eachDate, fmtDate } from "@/lib/time";
 import { REQUEST_TYPE_LABEL, withMsg } from "@/lib/util";
 
 const fail = (p: string, error: string): never => redirect(withMsg(p, { error }));
@@ -121,16 +121,16 @@ export async function createRequest(fd: FormData) {
     return fail("/requests/new", "ประเภทคำขอไม่ถูกต้อง");
   }
 
-  // แจ้งผู้อนุมัติ: หัวหน้างานโดยตรง — ถ้าไม่มีหัวหน้า ส่งให้ HR ทุกคน
-  const [me] = await db.select({ managerId: employees.managerId, firstName: employees.firstName, lastName: employees.lastName }).from(employees).where(eq(employees.id, empId));
-  const approvers = me?.managerId ? [...(await userIdsOfEmployees([me.managerId])).values()] : await hrUserIds(u.id);
+  // แจ้งผู้อนุมัติขั้นแรก: หัวหน้า (รายคน/หัวหน้าแผนก) — ถ้าไม่มีหัวหน้า ส่งตรงถึง HR
+  const headId = await headOf(empId);
+  const approvers = headId ? [...(await userIdsOfEmployees([headId])).values()] : await hrUserIds(u.id);
   await notify(approvers, {
     kind: "request_new",
     title: `คำขอใหม่รออนุมัติ: ${REQUEST_TYPE_LABEL[type as keyof typeof REQUEST_TYPE_LABEL] ?? ""}`,
-    body: me ? `จาก ${me.firstName} ${me.lastName}` : undefined,
+    body: `จาก ${u.displayName}`,
     href: "/requests/inbox",
   });
-  redirect(withMsg("/requests", { ok: "ส่งคำขอแล้ว รอการอนุมัติ" }));
+  redirect(withMsg("/requests", { ok: headId ? "ส่งคำขอแล้ว รอหัวหน้าแผนกอนุมัติ" : "ส่งคำขอแล้ว รอ HR อนุมัติ" }));
 }
 
 export async function cancelRequest(fd: FormData) {
@@ -153,15 +153,60 @@ export async function decideRequest(fd: FormData) {
 
   const [r] = await db.select().from(requests).where(eq(requests.id, id));
   if (!r || r.status !== "pending") return fail(P, "คำขอนี้ถูกดำเนินการไปแล้ว");
-  if (!(await canApprove(u, r.employeeId))) return fail(P, "คุณไม่มีสิทธิ์อนุมัติคำขอนี้");
+  const headId = await headOf(r.employeeId);
+  const stage = stageOf(r, headId);
+  if (!canDecide(u, r, headId)) {
+    return fail(P, stage === "head" ? "คำขอนี้ต้องให้หัวหน้าแผนกอนุมัติก่อน" : "คุณไม่มีสิทธิ์อนุมัติคำขอนี้");
+  }
+  const typeLabel = REQUEST_TYPE_LABEL[r.type];
+  const [emp] = await db.select({ firstName: employees.firstName, lastName: employees.lastName }).from(employees).where(eq(employees.id, r.employeeId));
+  const empName = emp ? `${emp.firstName} ${emp.lastName}` : "";
+  const requester = [...(await userIdsOfEmployees([r.employeeId])).values()];
 
+  // ---------- ขั้นที่ 1: หัวหน้าอนุมัติ (ลา/แก้เวลา → ส่งต่อ HR) ----------
+  if (stage === "head" && decision === "approved" && !HEAD_IS_FINAL.has(r.type)) {
+    const done = await db
+      .update(requests)
+      .set({ headApprovedBy: u.id, headApprovedAt: new Date(), headNote: note })
+      .where(and(eq(requests.id, id), eq(requests.status, "pending"), isNull(requests.headApprovedAt)))
+      .returning({ id: requests.id });
+    if (!done.length) return fail(P, "คำขอนี้ถูกดำเนินการไปแล้ว");
+    await audit(u.id, "head_approved", "request", id, { type: r.type, note });
+    await notify(await hrUserIds(u.id), {
+      kind: "request_new",
+      title: `รอ HR อนุมัติ: ${typeLabel}ของ ${empName}`,
+      body: `หัวหน้าแผนก (${u.displayName}) อนุมัติแล้ว${note ? ` · ${note}` : ""}`,
+      href: "/requests/inbox",
+    });
+    await notify(requester, { kind: "request_decided", title: `หัวหน้าแผนกอนุมัติคำขอ (${typeLabel}) แล้ว`, body: "รอ HR อนุมัติขั้นสุดท้าย", href: "/requests/mine" });
+    redirect(withMsg(P, { ok: "อนุมัติแล้ว ส่งต่อให้ HR อนุมัติขั้นสุดท้าย" }));
+  }
+
+  // ---------- ผลสุดท้าย (HR / หัวหน้ากรณี OT / ไม่อนุมัติในขั้นใดก็ได้) ----------
   // อัปเดตแบบมีเงื่อนไข status = pending กันการกดอนุมัติซ้อนกัน 2 คน
+  const now = new Date();
   const updated = await db
     .update(requests)
-    .set({ status: decision, decidedBy: u.id, decidedAt: new Date(), decisionNote: note })
+    .set({
+      status: decision,
+      decidedBy: u.id,
+      decidedAt: now,
+      decisionNote: note,
+      ...(stage === "head" ? { headApprovedBy: u.id, headApprovedAt: now, headNote: note } : {}),
+    })
     .where(and(eq(requests.id, id), eq(requests.status, "pending")))
     .returning({ id: requests.id });
   if (!updated.length) return fail(P, "คำขอนี้ถูกดำเนินการไปแล้ว");
+
+  // OT ที่หัวหน้าอนุมัติ: แจ้ง HR ให้ทราบรายละเอียด
+  if (decision === "approved" && r.type === "ot" && stage === "head") {
+    await notify(await hrUserIds(u.id), {
+      kind: "request_decided",
+      title: `OT อนุมัติแล้ว: ${empName}`,
+      body: `วันที่ ${fmtDate(r.otDate)} · ${Number(r.otHours)} ชม. × ${Number(r.otRate)} เท่า · อนุมัติโดย ${u.displayName}`,
+      href: "/requests/history",
+    });
+  }
 
   if (decision === "approved" && r.type === "time_correction" && r.correctionAt && r.correctionType) {
     await db.insert(attendanceLogs).values({
@@ -176,7 +221,6 @@ export async function decideRequest(fd: FormData) {
   await audit(u.id, decision, "request", id, { type: r.type, note });
 
   // แจ้งผู้ยื่นคำขอ
-  const requester = [...(await userIdsOfEmployees([r.employeeId])).values()];
   await notify(requester, {
     kind: "request_decided",
     title: `คำขอของคุณ (${REQUEST_TYPE_LABEL[r.type]}) ${decision === "approved" ? "ได้รับการอนุมัติแล้ว" : "ไม่ได้รับการอนุมัติ"}`,

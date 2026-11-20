@@ -18,6 +18,8 @@ export const AUDIT_ACTION: Record<string, string> = {
   manual_punch: "HR บันทึกเวลาแทน",
   delete_punch: "ลบรายการลงเวลา",
   approved: "อนุมัติ",
+  head_approved: "หัวหน้าแผนกอนุมัติ (ส่งต่อ HR)",
+  set_department_head: "ตั้งหัวหน้าแผนก",
   rejected: "ไม่อนุมัติ",
   cancelled: "ยกเลิกคำขอ",
   recalculate: "คำนวณเงินเดือนใหม่",
@@ -27,6 +29,8 @@ export const AUDIT_ACTION: Record<string, string> = {
   enable_user: "เปิดใช้งานบัญชี",
   disable_user: "ระงับบัญชี",
   update_system: "แก้ไขการตั้งค่าระบบ",
+  enable: "เปิดใช้งาน",
+  disable: "ปิดใช้งาน",
   issue_warning: "ออกใบเตือน",
   acknowledge_warning: "รับทราบใบเตือน",
   void_warning: "ยกเลิกใบเตือน",
@@ -48,6 +52,8 @@ export const AUDIT_ENTITY: Record<string, string> = {
   settings: "ตั้งค่าบริษัท",
   system: "ตั้งค่าระบบ",
   warning: "ใบเตือน",
+  warning_settings: "ตั้งค่าระดับการเตือน",
+  warning_category: "ประเภทความผิด",
 };
 
 /** โทนสีของป้าย: เรื่องความปลอดภัย/ลบ = แดง, เงิน = ทอง, เข้าระบบ = ฟ้า */

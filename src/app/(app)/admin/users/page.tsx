@@ -103,8 +103,8 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
       <Flash ok={sp.ok} error={sp.error} />
       <FilterBar>
         <SearchBox value={sp.q ?? ""} placeholder="ค้นหาชื่อ / รหัส / username" />
-        <FilterSelect param="role" value={sp.role ?? ""} placeholder="ทุกสิทธิ์" options={Object.entries(ROLE_LABEL).map(([value, label]) => ({ value, label }))} className="min-w-36 flex-1 sm:flex-none" />
-        <FilterSelect param="filter" value={sp.filter ?? ""} placeholder="ทุกสถานะ" options={FILTERS} className="min-w-52 flex-1 sm:flex-none" />
+        <FilterSelect param="role" value={sp.role ?? ""} label="สิทธิ์" options={Object.entries(ROLE_LABEL).map(([value, label]) => ({ value, label }))} className="min-w-36 flex-1 sm:flex-none" />
+        <FilterSelect param="filter" value={sp.filter ?? ""} label="สถานะบัญชี" options={FILTERS} className="min-w-52 flex-1 sm:flex-none" />
         <span className="ml-auto hidden px-3 text-sm text-stone-500 md:inline">{rows.length} บัญชี</span>
       </FilterBar>
 
@@ -155,7 +155,7 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
       <DesktopOnly>
         <Table head={["ผู้ใช้", "Username", "สิทธิ์", "มือถือสแกนนิ้ว", "เข้าระบบล่าสุด", "สถานะ", ""]} empty={!rows.length}>
           {rows.map((r) => (
-            <tr key={r.u.id}>
+            <tr key={r.u.id} data-href={r.e ? `/personnel/${r.e.id}` : undefined}>
               <td>
                 <span className="flex items-center gap-2.5">
                   <Avatar name={name(r)} employeeId={r.e?.id} version={r.photoAt?.getTime()} size={34} />
@@ -197,12 +197,12 @@ async function NoAccount({ q }: { q?: string }) {
     <>
       <FilterBar>
         <SearchBox value={q ?? ""} placeholder="ค้นหาชื่อ / รหัส" />
-        <FilterSelect param="filter" value="no_account" placeholder="ทุกสถานะ" options={FILTERS} className="min-w-52 flex-1 sm:flex-none" />
+        <FilterSelect param="filter" value="no_account" label="สถานะบัญชี" options={FILTERS} className="min-w-52 flex-1 sm:flex-none" />
         <span className="ml-auto hidden px-3 text-sm text-stone-500 md:inline">{rows.length} คน</span>
       </FilterBar>
       <Table head={["รหัส", "พนักงาน", ""]} empty={!rows.length}>
         {rows.map(({ e }) => (
-          <tr key={e.id}>
+          <tr key={e.id} data-href={`/personnel/${e.id}`}>
             <td>{e.code}</td>
             <td>{fullName(e)}</td>
             <td className="text-right">

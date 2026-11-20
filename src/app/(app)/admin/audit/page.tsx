@@ -1,6 +1,8 @@
 import { and, asc, desc, eq, gte, lt, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { auditLogs, users } from "@/db/schema";
+import { auditLogs, employees, users } from "@/db/schema";
+import { EmployeePicker } from "@/components/employee-picker";
+import { fullName } from "@/lib/util";
 import { DateRangeNav, FilterBar, FilterSelect } from "@/components/filter-bar";
 import { Badge, DesktopOnly, MobileCard, MobileList, Table } from "@/components/ui";
 import { AUDIT_ACTION, AUDIT_ENTITY, auditTone } from "@/lib/audit-labels";
@@ -40,7 +42,11 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       .where(and(...conds))
       .orderBy(desc(auditLogs.createdAt))
       .limit(LIMIT),
-    db.select({ id: users.id, username: users.username }).from(users).orderBy(asc(users.username)),
+    db
+      .select({ id: users.id, username: users.username, e: employees })
+      .from(users)
+      .leftJoin(employees, eq(users.employeeId, employees.id))
+      .orderBy(asc(users.username)),
     db.selectDistinct({ action: auditLogs.action }).from(auditLogs).orderBy(asc(auditLogs.action)),
   ]);
 
@@ -66,11 +72,20 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
         <FilterSelect
           param="action"
           value={sp.action ?? ""}
-          placeholder="ทุกการกระทำ"
+          label="การกระทำ"
           options={actions.map((x) => ({ value: x.action, label: AUDIT_ACTION[x.action] ?? x.action }))}
           className="min-w-44 flex-1 sm:flex-none"
         />
-        <FilterSelect param="user" value={sp.user ?? ""} placeholder="ทุกผู้ใช้" options={people.map((p) => ({ value: p.id, label: p.username }))} className="min-w-36 flex-1 sm:flex-none" />
+        <EmployeePicker
+          key={sp.user ?? "all"}
+          variant="filter"
+          syncParam="user"
+          allowClear="ผู้ใช้: ทั้งหมด"
+          placeholder="พิมพ์ชื่อหรือ username"
+          defaultValue={Number(sp.user) || undefined}
+          options={people.map((p) => ({ id: p.id, code: p.username, name: p.e ? fullName(p.e) : p.username, nickname: p.e?.nickname }))}
+          className="min-w-56 flex-1 sm:max-w-72"
+        />
         <span className="ml-auto hidden px-3 text-sm text-stone-500 md:inline">
           {rows.length}
           {rows.length === LIMIT ? "+" : ""} รายการ
@@ -109,7 +124,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                 <Badge tone={auditTone(x.a.action)}>{AUDIT_ACTION[x.a.action] ?? x.a.action}</Badge>
               </td>
               <td>{what(x)}</td>
-              <td className="max-w-md truncate text-xs text-stone-500" title={summarize(x.a.detail)}>
+              <td className="w-full max-w-0 truncate text-xs text-stone-500" title={summarize(x.a.detail)}>
                 {summarize(x.a.detail) || "-"}
               </td>
             </tr>

@@ -6,7 +6,8 @@ import { Card, DesktopOnly, Flash, LinkButton, MobileCard, MobileList, Table } f
 import { requireUser } from "@/lib/auth";
 import { bkkDateStr, fmtDateTime } from "@/lib/time";
 import { cancelRequest } from "../actions";
-import { RequestSummary, StatusBadge, TypeBadge } from "../request-detail";
+import { headOf, namesOf, stageOf } from "@/lib/approval";
+import { ApprovalTrail, RequestSummary, StatusBadge, TypeBadge } from "../request-detail";
 
 export const metadata = { title: "คำขอของฉัน" };
 
@@ -47,6 +48,14 @@ export default async function MyRequests({ searchParams }: { searchParams: Promi
       .orderBy(leaveTypes.id),
   ]);
 
+  // ตอนนี้รอใคร: หัวหน้าของฉัน (รายคน/หัวหน้าแผนก) + ชื่อคนที่อนุมัติไปแล้ว
+  const headId = await headOf(u.employeeId);
+  const names = await namesOf({
+    employees: [headId],
+    users: rows.flatMap(({ r }) => [r.headApprovedBy, r.decidedBy]),
+  });
+  const headName = headId ? (names.employee.get(headId) ?? null) : null;
+
   return (
     <>
       <Flash ok={sp.ok} error={sp.error} />
@@ -77,11 +86,12 @@ export default async function MyRequests({ searchParams }: { searchParams: Promi
           <MobileCard key={r.id}>
             <div className="flex items-center justify-between gap-2">
               <TypeBadge type={r.type} />
-              <StatusBadge r={r} />
+              <StatusBadge r={r} stage={stageOf(r, headId)} />
             </div>
             <div className="mt-2 text-[15px] text-brand-900">
               <RequestSummary r={r} leaveName={leaveName} />
             </div>
+            <ApprovalTrail r={r} headName={headName} userName={names.user} />
             {r.reason && <div className="mt-1 text-sm text-stone-500">“{r.reason}”</div>}
             {r.decisionNote && <div className="mt-1 text-sm text-stone-500">หมายเหตุผู้อนุมัติ: {r.decisionNote}</div>}
             <div className="mt-2 flex items-center justify-between text-xs text-stone-400">
@@ -111,7 +121,8 @@ export default async function MyRequests({ searchParams }: { searchParams: Promi
               </td>
               <td className="max-w-56 truncate text-stone-500">{r.reason}</td>
               <td>
-                <StatusBadge r={r} />
+                <StatusBadge r={r} stage={stageOf(r, headId)} />
+                <ApprovalTrail r={r} headName={headName} userName={names.user} />
                 {r.decisionNote && <div className="text-xs text-stone-400">{r.decisionNote}</div>}
               </td>
               <td>

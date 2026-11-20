@@ -66,6 +66,8 @@ export const departments = pgTable("departments", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   parentId: integer("parent_id").references((): AnyPgColumn => departments.id, { onDelete: "set null" }),
+  // หัวหน้าแผนก: อนุมัติคำขอของคนในแผนกเป็นขั้นแรก (ลา/แก้เวลา → แล้วส่ง HR · OT → จบที่หัวหน้า)
+  headEmployeeId: integer("head_employee_id").references((): AnyPgColumn => employees.id, { onDelete: "set null" }),
   createdAt: createdAt(),
 });
 
@@ -233,6 +235,11 @@ export const requests = pgTable(
     correctionAt: timestamp("correction_at", { withTimezone: true }),
     correctionType: punchTypeEnum("correction_type"),
     reason: text("reason"),
+    // ขั้นที่ 1: หัวหน้าแผนกอนุมัติ (ลา/แก้เวลา ยัง pending รอ HR ต่อ)
+    headApprovedBy: integer("head_approved_by").references(() => users.id, { onDelete: "set null" }),
+    headApprovedAt: timestamp("head_approved_at", { withTimezone: true }),
+    headNote: text("head_note"),
+    // ผลสุดท้าย
     decidedBy: integer("decided_by").references(() => users.id, { onDelete: "set null" }),
     decidedAt: timestamp("decided_at", { withTimezone: true }),
     decisionNote: text("decision_note"),
@@ -353,9 +360,29 @@ export const warnings = pgTable(
     employeeNote: text("employee_note"), // คำชี้แจงของพนักงาน
     voidedAt: timestamp("voided_at", { withTimezone: true }), // ยกเลิกใบเตือน
     voidReason: text("void_reason"),
+    validUntil: date("valid_until"), // วันหมดผล (คำนวณตอนออกตามการตั้งค่าขณะนั้น) — null = 1 ปีนับจากวันเกิดเหตุ
   },
   (t) => [index("warnings_employee_idx").on(t.employeeId)],
 );
+
+/** ตั้งค่าแต่ละระดับการเตือน (HR แก้ได้ที่ ตั้งค่าองค์กร → ใบเตือน) */
+export const warningLevelSettings = pgTable("warning_level_settings", {
+  level: warningLevelEnum("level").primaryKey(),
+  name: text("name").notNull(), // ชื่อที่แสดงในระบบ เช่น "หนังสือเตือน"
+  docTitle: text("doc_title").notNull(), // หัวเรื่องในเอกสาร
+  description: text("description"), // คำอธิบายในฟอร์มออกใบเตือน
+  validityMonths: integer("validity_months").notNull().default(12), // มีผลกี่เดือน
+  closingText: text("closing_text"), // ข้อความท้ายหนังสือ (ผลถ้าทำผิดซ้ำ)
+  enabled: boolean("enabled").notNull().default(true),
+});
+
+/** ประเภทความผิด (HR เพิ่ม/แก้/ปิดได้) — ใบเตือนเก็บชื่อไว้เป็นข้อความ จึงไม่กระทบใบเก่า */
+export const warningCategories = pgTable("warning_categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  active: boolean("active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
 
 /* -------------------------------- Relations ------------------------------- */
 export const employeesRelations = relations(employees, ({ one }) => ({

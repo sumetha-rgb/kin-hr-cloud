@@ -20,11 +20,11 @@ await db
 await db
   .insert(s.leaveTypes)
   .values([
-    { code: "SICK", name: "ลาป่วย", paid: true, daysPerYear: 30 },
-    { code: "BUSINESS", name: "ลากิจ", paid: true, daysPerYear: 3 },
-    { code: "VACATION", name: "ลาพักร้อน", paid: true, daysPerYear: 6 },
-    { code: "MATERNITY", name: "ลาคลอด", paid: true, daysPerYear: 120 },
-    { code: "UNPAID", name: "ลาไม่รับค่าจ้าง", paid: false, daysPerYear: 0 },
+    { code: "SL", name: "ลาป่วย", paid: true, daysPerYear: 30 },
+    { code: "PL", name: "ลากิจ", paid: true, daysPerYear: 3 },
+    { code: "VL", name: "ลาพักร้อน", paid: true, daysPerYear: 6 },
+    { code: "ML", name: "ลาคลอด", paid: true, daysPerYear: 120 },
+    { code: "UL", name: "ลาไม่รับค่าจ้าง", paid: false, daysPerYear: 0 },
   ])
   .onConflictDoNothing();
 

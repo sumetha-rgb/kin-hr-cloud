@@ -1,10 +1,10 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
-import { branches, companySettings, departments, holidays, leaveTypes, positions, shifts } from "@/db/schema";
+import { branches, companySettings, departments, holidays, leaveTypes, positions, shifts, users } from "@/db/schema";
 import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth";
 import { parseForm, zBool, zDate, zMoney, zOptInt, zTime } from "@/lib/form";
@@ -69,15 +69,29 @@ export async function deleteBranch(fd: FormData) {
 
 /* ----------------------------- แผนก / ตำแหน่ง ---------------------------- */
 export async function saveDepartment(fd: FormData) {
-  await guard();
+  const u = await guard();
   const P = "/organization/departments";
-  const r = parseForm(z.object({ id: zOptInt, name: z.string().min(1), parentId: zOptInt }), fd);
+  const r = parseForm(z.object({ id: zOptInt, name: z.string().min(1), parentId: zOptInt, headEmployeeId: zOptInt }), fd);
   if (!r.ok) fail(P, r.error);
-  const { id, name, parentId } = r.data;
+  const { id, name, parentId, headEmployeeId } = r.data;
   if (id && parentId === id) fail(P, "แผนกแม่ต้องไม่ใช่ตัวเอง");
-  if (id) await db.update(departments).set({ name, parentId: parentId ?? null }).where(eq(departments.id, id));
-  else await db.insert(departments).values({ name, parentId: parentId ?? null });
-  done(P, "บันทึกแผนกแล้ว");
+  const values = { name, parentId: parentId ?? null, headEmployeeId: headEmployeeId ?? null };
+  let deptId = id;
+  if (id) await db.update(departments).set(values).where(eq(departments.id, id));
+  else deptId = (await db.insert(departments).values(values).returning({ id: departments.id }))[0].id;
+
+  // หัวหน้าแผนกต้องเห็นเมนูอนุมัติ → ปรับสิทธิ์ "พนักงาน" เป็น "หัวหน้างาน" ให้อัตโนมัติ (ไม่ลดสิทธิ์ใคร)
+  let promoted = false;
+  if (headEmployeeId) {
+    const up = await db
+      .update(users)
+      .set({ role: "manager" })
+      .where(and(eq(users.employeeId, headEmployeeId), eq(users.role, "employee")))
+      .returning({ id: users.id });
+    promoted = up.length > 0;
+    await audit(u.id, "set_department_head", "department", deptId, { headEmployeeId, promoted });
+  }
+  done(P, promoted ? "บันทึกแผนกแล้ว — ปรับสิทธิ์หัวหน้าแผนกเป็น “หัวหน้างาน” ให้แล้ว" : "บันทึกแผนกแล้ว");
 }
 
 export async function deleteDepartment(fd: FormData) {
@@ -157,7 +171,17 @@ export async function saveLeaveType(fd: FormData) {
   await guard();
   const P = "/organization/leave-types";
   const r = parseForm(
-    z.object({ id: zOptInt, code: z.string().min(1).max(20), name: z.string().min(1), paid: zBool, daysPerYear: z.coerce.number().int().min(0).default(0) }),
+    z.object({
+      id: zOptInt,
+      code: z
+        .string()
+        .min(1)
+        .max(4, "ตัวย่อยาวไม่เกิน 4 ตัวอักษร")
+        .transform((s) => s.toUpperCase()),
+      name: z.string().min(1),
+      paid: zBool,
+      daysPerYear: z.coerce.number().int().min(0).default(0),
+    }),
     fd,
   );
   if (!r.ok) fail(P, r.error);

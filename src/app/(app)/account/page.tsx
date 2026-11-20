@@ -12,7 +12,8 @@ import { isHR, requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/payroll-run";
 import { fmtDate, fmtDateTime } from "@/lib/time";
 import { fullName, ROLE_LABEL, STATUS_LABEL } from "@/lib/util";
-import { WARNING_LEVEL, WARNING_STATUS, warningStatus } from "@/lib/warning";
+import { WARNING_STATUS, warningStatus } from "@/lib/warning";
+import { getWarningConfig } from "@/lib/warning-config";
 import { changePassword, saveMyProfile } from "./actions";
 
 export const metadata = { title: "โปรไฟล์ของฉัน" };
@@ -38,6 +39,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
     u.employeeId ? db.select().from(warnings).where(and(eq(warnings.employeeId, u.employeeId), isNull(warnings.voidedAt))).orderBy(desc(warnings.incidentDate)) : Promise.resolve([]),
   ]);
   const e = row?.e;
+  const wcfg = await getWarningConfig();
   const canEdit = settings.selfProfileEdit || isHR(u); // HR ปิดได้ที่ ดูแลระบบ → ตั้งค่าระบบ
 
   return (
@@ -136,9 +138,9 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
 
           {myWarnings.length > 0 && (
             <div id="warnings" className="scroll-mt-24">
-              <Card title="ใบเตือนของฉัน" subtitle="หนังสือเตือนมีผล 1 ปีนับจากวันที่เกิดเหตุ">
+              <Card title="ใบเตือนของฉัน" subtitle="แต่ละใบมีผลตามวันที่ระบุในใบเตือน" actions={<MoreLink href="/warnings">ดูทั้งหมด</MoreLink>}>
                 <ul className="space-y-2">
-                  {myWarnings.map((w) => {
+                  {myWarnings.slice(0, 2).map((w) => {
                     const st = warningStatus(w);
                     return (
                       <li key={w.id}>
@@ -146,7 +148,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
                           <span className="min-w-0">
                             <span className="block font-medium text-brand-900">{w.category}</span>
                             <span className="block text-xs text-stone-500">
-                              {fmtDate(w.incidentDate)} · {WARNING_LEVEL[w.level].short}
+                              {fmtDate(w.incidentDate)} · {wcfg.level[w.level].name}
                             </span>
                           </span>
                           <Badge tone={WARNING_STATUS[st].tone}>{st === "pending" ? "กรุณากดรับทราบ" : WARNING_STATUS[st].label}</Badge>

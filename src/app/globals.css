@@ -118,11 +118,24 @@ body {
   }
 }
 
+/* พิมพ์: ระยะขอบ 0 = เบราว์เซอร์ไม่ใส่วันที่/ชื่อหน้า/ลิงก์ที่หัว-ท้ายกระดาษ แล้วเว้นขอบเองในเนื้อหา */
+@page {
+  size: A4;
+  margin: 0;
+}
 @media print {
   .no-print {
     display: none !important;
   }
+  html,
   body {
-    background: white;
+    background: white !important;
+  }
+  main {
+    margin: 0 !important;
+    padding: 14mm 16mm !important;
+  }
+  .animate-in {
+    animation: none !important;
   }
 }

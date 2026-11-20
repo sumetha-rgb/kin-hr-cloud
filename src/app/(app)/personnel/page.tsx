@@ -42,7 +42,7 @@ export default async function PersonnelPage({
 
   return (
     <>
-      <PageHeader title="Personnel" subtitle={`ระบบจัดการข้อมูลพนักงาน · ${rows.length} คน`} actions={<LinkButton href="/personnel/new">+ เพิ่มพนักงาน</LinkButton>} />
+      <PageHeader title="พนักงาน" subtitle={`ข้อมูลพนักงานทั้งหมด ${rows.length} คน`} actions={<LinkButton href="/personnel/new">+ เพิ่มพนักงาน</LinkButton>} />
       <Flash ok={sp.ok} error={sp.error} />
       <form className="mb-4 grid gap-2 sm:grid-cols-[1fr_200px_180px_auto]">
         <Input name="q" placeholder="ค้นหารหัส ชื่อ นามสกุล ชื่อเล่น" defaultValue={sp.q} />
@@ -73,7 +73,7 @@ export default async function PersonnelPage({
       <DesktopOnly>
         <Table head={["รหัส", "ชื่อ-สกุล", "สาขา", "แผนก / ตำแหน่ง", "เริ่มงาน", "สถานะ", "บัญชีผู้ใช้"]} empty={!rows.length}>
           {rows.map(({ e, branch, dept, pos, role, photoAt }) => (
-            <tr key={e.id} className="hover:bg-stone-50">
+            <tr key={e.id} data-href={`/personnel/${e.id}`}>
               <td>
                 <Link href={`/personnel/${e.id}`} className="font-medium text-brand-600">
                   {e.code}

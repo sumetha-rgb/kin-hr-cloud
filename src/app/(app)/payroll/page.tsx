@@ -24,12 +24,12 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <PageHeader title="Payroll" subtitle="ระบบคำนวณเงินเดือนอัตโนมัติ" />
+      <PageHeader title="เงินเดือน" subtitle="คำนวณเงินเดือนรายงวด ปิดงวด และออกสลิป" />
       <Flash ok={sp.ok} error={sp.error} />
       <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
         <Table head={["งวด", "จำนวนคน", "รายได้รวม", "จ่ายสุทธิ", "สถานะ", "คำนวณล่าสุด"]} empty={!runs.length}>
           {runs.map(({ run, n, net, gross }) => (
-            <tr key={run.id} className="hover:bg-stone-50">
+            <tr key={run.id} data-href={`/payroll/${run.id}`}>
               <td>
                 <Link href={`/payroll/${run.id}`} className="font-medium text-brand-600">
                   {fmtMonth(run.year, run.month)}

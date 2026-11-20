@@ -94,7 +94,7 @@ export default async function RunPage({ params, searchParams }: { params: Promis
           ].filter(Boolean);
           const deduct = new Decimal(i.lateDeduction).plus(i.sso).plus(i.tax);
           return (
-            <tr key={i.id}>
+            <tr key={i.id} data-href={`/payroll/${run.id}/slip/${e.id}`}>
               <td>
                 <span className="block font-medium text-brand-900">{fullName(e)}</span>
                 <span className="block text-xs font-normal text-stone-500">

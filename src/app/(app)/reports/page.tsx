@@ -27,7 +27,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <PageHeader title="Report" subtitle="รายงาน" />
+      <PageHeader title="รายงาน" subtitle="ดาวน์โหลดรายงานเวลาทำงาน เงินเดือน และการลา เป็นไฟล์ Excel (CSV)" />
       <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Card title="รายงานเวลาทำงาน">
           <form action="/api/reports/attendance" className="space-y-2">
@@ -90,7 +90,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       </form>
       <Table head={["รหัส", "พนักงาน", "วันทำงาน", "มาทำงาน", "สาย (ครั้ง/นาที)", "ขาด", "ลา", "ลงเวลาไม่ครบ"]} empty={!att.length}>
         {att.map(({ employee: e, totals: t }) => (
-          <tr key={e.id}>
+          <tr key={e.id} data-href={`/attendance/me?employee=${e.id}`}>
             <td>{e.code}</td>
             <td>{fullName(e)}</td>
             <td>{t.scheduled}</td>

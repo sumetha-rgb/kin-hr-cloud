@@ -1,6 +1,7 @@
 import { asc, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { branches, departments, employees, positions, shifts, type Employee } from "@/db/schema";
+import { EmployeePicker } from "@/components/employee-picker";
 import { SubmitButton } from "@/components/submit-button";
 import { Card, Checkbox, Field, Input, Select, Textarea } from "@/components/ui";
 import { bkkDateStr } from "@/lib/time";
@@ -89,14 +90,16 @@ export async function EmployeeForm({ employee: e, suggestedCode }: { employee?: 
           <Field label="กะการทำงาน">
             <Select name="shiftId" placeholder="- ค่าเริ่มต้น 08:00-17:00 -" defaultValue={e?.shiftId ?? ""} options={sh.map((s) => ({ value: s.id, label: s.name }))} />
           </Field>
-          <Field label="หัวหน้างาน (ผู้อนุมัติ)">
-            <Select
+          <div>
+            <span className="mb-1 block text-sm font-medium text-brand-800">หัวหน้างานเฉพาะคน</span>
+            <EmployeePicker
               name="managerId"
-              placeholder="- ไม่มี (HR อนุมัติ) -"
-              defaultValue={e?.managerId ?? ""}
-              options={mgr.filter((m) => m.id !== e?.id).map((m) => ({ value: m.id, label: `${fullName(m)} (${m.code})` }))}
+              allowClear="ใช้หัวหน้าแผนก"
+              defaultValue={e?.managerId ?? undefined}
+              options={mgr.filter((m) => m.id !== e?.id).map((m) => ({ id: m.id, code: m.code, name: fullName(m), nickname: m.nickname }))}
             />
-          </Field>
+            <span className="mt-1 block text-xs text-stone-500">เว้นว่างไว้ = ให้หัวหน้าแผนกอนุมัติ · ตั้งไว้เมื่อคนนี้ต้องให้คนอื่นอนุมัติแทน</span>
+          </div>
         </div>
         <div className="mt-3">
           <Checkbox name="allowRemoteCheckin" label="อนุญาตให้สแกนนิ้วลงเวลานอกสถานที่ (ไม่ต้องอยู่ในรัศมีสาขา เช่น งานภาคสนาม)" defaultChecked={e?.allowRemoteCheckin ?? false} />

@@ -6,7 +6,7 @@ import { Avatar } from "@/components/avatar";
 import { BarChart, type BarDatum } from "@/components/bar-chart";
 import { Icon } from "@/components/icons";
 import { Badge, Card, DesktopOnly, Flash, MobileList, MoreLink, Stat, Table } from "@/components/ui";
-import { approvableWhere } from "@/lib/approval";
+import { pendingForUser } from "@/lib/approval";
 import { requireUser } from "@/lib/auth";
 import { loadAttendance } from "@/lib/attendance-data";
 import { getSettings } from "@/lib/payroll-run";
@@ -51,16 +51,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           .orderBy(desc(payrollRuns.year), desc(payrollRuns.month))
           .limit(1)
       : Promise.resolve([]),
-    approver
-      ? db
-          .select({ r: requests, e: employees, leaveName: leaveTypes.name, photoAt: employeePhotos.updatedAt })
-          .from(requests)
-          .innerJoin(employees, eq(requests.employeeId, employees.id))
-          .leftJoin(employeePhotos, eq(employeePhotos.employeeId, employees.id))
-          .leftJoin(leaveTypes, eq(requests.leaveTypeId, leaveTypes.id))
-          .where(and(eq(requests.status, "pending"), approvableWhere(user)))
-          .orderBy(asc(requests.createdAt))
-      : Promise.resolve([]),
+    approver ? pendingForUser(user) : Promise.resolve([]),
   ]);
   const lastIn = mine.findLast((l) => l.type === "in");
   const lastOut = mine.findLast((l) => l.type === "out");
@@ -121,7 +112,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               </span>
               <Icon name="chevronRight" className="ml-auto size-6 text-brand-400" />
             </Link>
-            <Link href="/requests" className="rounded-3xl bg-white/[.08] p-4 ring-1 ring-white/15 backdrop-blur transition hover:bg-white/[.12] sm:p-5">
+            <Link href="/requests/mine" className="rounded-3xl bg-white/[.08] p-4 ring-1 ring-white/15 backdrop-blur transition hover:bg-white/[.12] sm:p-5">
               <span className="block text-sm text-brand-200/90">คำขอที่รออนุมัติ</span>
               <span className="mt-0.5 block text-[26px] font-semibold tabular-nums">{pendingMine.n} รายการ</span>
               <span className="inline-flex items-center gap-0.5 text-sm text-brand-200">
@@ -264,7 +255,7 @@ async function HrOverview({ today, from, to }: { today: string; from: Date; to: 
           <div className="p-4">
             <Table head={["เวลา", "พนักงาน", "ประเภท", "สาขา", "ระยะจากสาขา"]} empty={recent.length === 0}>
               {recent.map(({ log, e, branch, photoAt }) => (
-                <tr key={log.id}>
+                <tr key={log.id} data-href={`/attendance/me?employee=${e.id}`}>
                   <td className="font-medium tabular-nums">{bkkTimeStr(log.punchedAt)}</td>
                   <td>
                     <span className="flex items-center gap-2.5">

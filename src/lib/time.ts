@@ -60,6 +60,14 @@ const thDateTime = new Intl.DateTimeFormat("th-TH", {
 });
 const thMonth = new Intl.DateTimeFormat("th-TH", { timeZone: TZ, month: "long", year: "numeric" });
 
+const thDateLong = new Intl.DateTimeFormat("th-TH", { timeZone: TZ, day: "numeric", month: "long", year: "numeric" });
+
+/** "20 พฤศจิกายน 2569" — ใช้ในเอกสารทางการ */
+export function fmtDateLong(d: Date | string | null | undefined): string {
+  if (!d) return "-";
+  return thDateLong.format(typeof d === "string" ? atBkk(d, "12:00") : d);
+}
+
 export function fmtDate(d: Date | string | null | undefined): string {
   if (!d) return "-";
   return thDate.format(typeof d === "string" ? atBkk(d, "12:00") : d);

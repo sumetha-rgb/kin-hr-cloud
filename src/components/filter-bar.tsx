@@ -282,43 +282,122 @@ export function StepNav({ label, prev, next }: { label: React.ReactNode; prev: s
   );
 }
 
-/** ช่องเลือกที่เปลี่ยนแล้วกรองทันที (เก็บค่าใน URL) */
+/**
+ * ช่องเลือกที่เปลี่ยนแล้วกรองทันที (เก็บค่าใน URL)
+ * label = หัวข้อสั้น ๆ ที่แสดงในแคปซูลตลอด เช่น "สาขา" → "สาขา  ทั้งหมด ▾" / "สาขา  KIN พัทยา ✕"
+ */
 export function FilterSelect({
   param,
   value,
   options,
-  placeholder,
+  placeholder = "ทั้งหมด",
+  label,
   icon,
   className,
 }: {
   param: string;
   value: string;
   options: Array<{ value: string | number; label: string }>;
-  placeholder: string;
+  placeholder?: string;
+  label?: string;
   icon?: React.ReactNode;
   className?: string;
 }) {
   const href = useQueryHref();
   const router = useRouter();
   const [pending, start] = useTransition();
+  const [open, setOpen] = useState(false);
+  const [hi, setHi] = useState(0);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const set = (v: string) => {
+    setOpen(false);
+    start(() => router.push(href({ [param]: v || null }), { scroll: false }));
+  };
+  const active = value !== "";
+  const all = [{ value: "", label: placeholder }, ...options.map((o) => ({ value: String(o.value), label: o.label }))];
+  const current = all.find((o) => o.value === value) ?? all[0];
+
+  useEffect(() => {
+    if (!open) return;
+    setHi(Math.max(0, all.findIndex((o) => o.value === value)));
+    const onDown = (e: MouseEvent | TouchEvent) => boxRef.current && !boxRef.current.contains(e.target as Node) && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  function onKey(e: React.KeyboardEvent) {
+    if (e.key === "Escape") return setOpen(false);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) return setOpen(true);
+      setHi((h) => Math.min(all.length - 1, Math.max(0, h + (e.key === "ArrowDown" ? 1 : -1))));
+    } else if ((e.key === "Enter" || e.key === " ") && open) {
+      e.preventDefault();
+      set(all[hi].value);
+    }
+  }
+
   return (
-    <label className={cn("relative flex min-h-11 items-center rounded-full border border-brand-200 bg-white transition hover:border-brand-300 sm:min-h-10", pending && "opacity-60", className)}>
-      {icon && <span className="pointer-events-none absolute left-3.5 text-brand-500">{icon}</span>}
-      <select
-        value={value}
-        onChange={(e) => start(() => router.push(href({ [param]: e.target.value || null }), { scroll: false }))}
-        className={cn("h-full w-full cursor-pointer appearance-none rounded-full bg-transparent py-2 pr-9 text-[15px] text-brand-900 outline-none focus-visible:ring-4 focus-visible:ring-brand-100 sm:text-sm", icon ? "pl-10" : "pl-4")}
+    <div ref={boxRef} className={cn("relative", className)}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        onKeyDown={onKey}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={label}
+        className={cn(
+          "flex min-h-11 w-full items-center gap-2 rounded-full border py-2 pr-10 text-left transition outline-none focus-visible:ring-4 focus-visible:ring-brand-100 sm:min-h-10",
+          active ? "border-brand-400 bg-brand-50" : "border-brand-200 bg-white hover:border-brand-300",
+          icon || label ? "pl-4" : "pl-4",
+          active && "pr-16",
+          pending && "opacity-60",
+        )}
       >
-        <option value="">{placeholder}</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <svg viewBox="0 0 24 24" className="pointer-events-none absolute right-3 size-4 text-brand-500" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden>
+        {icon && <span className="text-brand-500">{icon}</span>}
+        {label && <span className={cn("shrink-0 text-xs font-medium whitespace-nowrap", active ? "text-brand-700" : "text-stone-500")}>{label}</span>}
+        {label && <span className={cn("h-3.5 w-px shrink-0", active ? "bg-brand-300" : "bg-brand-200")} aria-hidden />}
+        <span className={cn("min-w-0 flex-1 truncate text-[15px] sm:text-sm", active ? "font-medium text-brand-900" : "text-brand-900")}>{current.label}</span>
+      </button>
+      {active && (
+        <button type="button" onClick={() => set("")} className="absolute top-1/2 right-8 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-brand-600 hover:bg-white hover:text-rose-600" aria-label={`ล้างตัวกรอง${label ?? ""}`}>
+          <Icon name="x" className="size-3.5" />
+        </button>
+      )}
+      <svg viewBox="0 0 24 24" className={cn("pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-brand-500 transition", open && "rotate-180")} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden>
         <path d="M6 9l6 6 6-6" />
       </svg>
-    </label>
+
+      {open && (
+        <ul role="listbox" aria-label={label} className="animate-in absolute top-full left-0 z-30 mt-1.5 max-h-80 w-full min-w-56 overflow-y-auto rounded-2xl border border-brand-200 bg-white p-1.5 shadow-lift">
+          {all.map((o, i) => {
+            const sel = o.value === value;
+            return (
+              <li key={o.value || "__all"} role="option" aria-selected={sel}>
+                <button
+                  type="button"
+                  onMouseEnter={() => setHi(i)}
+                  onClick={() => set(o.value)}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[15px] leading-snug sm:text-sm",
+                    i === hi ? "bg-brand-50" : "",
+                    sel ? "font-semibold text-brand-900" : "text-stone-700",
+                    o.value === "" && "text-stone-500",
+                  )}
+                >
+                  <span className="flex size-4 shrink-0 items-center justify-center text-brand-600">{sel && <Icon name="tick" className="size-4" strokeWidth={2.4} />}</span>
+                  {o.label}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }

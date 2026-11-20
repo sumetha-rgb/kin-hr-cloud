@@ -8,13 +8,13 @@ export default async function AttendanceLayout({ children }: { children: React.R
   const hr = u.role === "admin" || u.role === "hr";
   return (
     <>
-      <PageHeader title="Time Attendance" subtitle="ระบบลงเวลาเข้าออกของพนักงาน" />
+      <PageHeader title="เวลาทำงาน" subtitle="ดูการเข้า-ออกงาน มาสาย ขาด ลา ของพนักงาน" />
       {mgr && (
         <RouteTabs
           items={[
-            { href: "/attendance/board", label: "สรุปรายวัน" },
-            ...(hr ? [{ href: "/attendance/logs", label: "บันทึกการสแกน" }] : []),
-            { href: "/attendance/me", label: "รายเดือน (รายบุคคล)" },
+            { href: "/attendance/board", label: "สรุปการมาทำงาน" },
+            ...(hr ? [{ href: "/attendance/logs", label: "รายการสแกนเข้า-ออก" }] : []),
+            { href: "/attendance/me", label: "ปฏิทินรายเดือนรายคน" },
           ]}
         />
       )}

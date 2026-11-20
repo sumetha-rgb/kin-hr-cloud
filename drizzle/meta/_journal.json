@@ -29,6 +29,20 @@
       "when": 1795144151066,
       "tag": "0003_notifications_warnings",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795147061103,
+      "tag": "0004_warning_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795148492627,
+      "tag": "0005_dept_head_approval",
+      "breakpoints": true
     }
   ]
 }

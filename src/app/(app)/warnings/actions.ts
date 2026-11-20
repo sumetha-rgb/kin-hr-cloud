@@ -11,14 +11,15 @@ import { parseForm, zBool, zDate } from "@/lib/form";
 import { notify, userIdsOfEmployees } from "@/lib/notify";
 import { bkkDateStr } from "@/lib/time";
 import { withMsg } from "@/lib/util";
-import { WARNING_CATEGORIES, WARNING_LEVEL } from "@/lib/warning";
+import { validUntil } from "@/lib/warning";
+import { getWarningConfig } from "@/lib/warning-config";
 
 const fail = (p: string, error: string): never => redirect(withMsg(p, { error }));
 
 const issueSchema = z.object({
   employeeId: z.coerce.number().int().positive("เลือกพนักงาน"),
   level: z.enum(["verbal", "written", "final"]),
-  category: z.enum(WARNING_CATEGORIES as [string, ...string[]], "เลือกประเภทความผิด"),
+  category: z.string().min(1, "เลือกประเภทความผิด").max(80),
   incidentDate: zDate,
   reason: z.string().min(10, "กรอกเหตุผล/รายละเอียดอย่างน้อย 10 ตัวอักษร").max(2000),
   action: z.string().max(1000).optional(),
@@ -33,19 +34,32 @@ export async function issueWarning(fd: FormData) {
   if (!r.ok) return fail(P, r.error);
   const v = r.data;
   if (v.incidentDate > bkkDateStr()) return fail(P, "วันที่เกิดเหตุต้องไม่เป็นวันในอนาคต");
+  const cfg = await getWarningConfig();
+  const lv = cfg.level[v.level];
+  if (!lv.enabled) return fail(P, `ระดับ “${lv.name}” ถูกปิดใช้งานอยู่`);
+  if (!cfg.activeCategories.includes(v.category)) return fail(P, "ประเภทความผิดไม่ถูกต้องหรือถูกปิดใช้งาน");
   const [emp] = await db.select({ id: employees.id }).from(employees).where(eq(employees.id, v.employeeId));
   if (!emp) return fail(P, "ไม่พบพนักงาน");
 
   const [w] = await db
     .insert(warnings)
-    .values({ employeeId: v.employeeId, level: v.level, category: v.category, incidentDate: v.incidentDate, reason: v.reason, action: v.action ?? null, issuedBy: u.id })
+    .values({
+      employeeId: v.employeeId,
+      level: v.level,
+      category: v.category,
+      incidentDate: v.incidentDate,
+      validUntil: validUntil(v.incidentDate, lv.validityMonths), // เก็บไว้ตอนออก — แก้การตั้งค่าภายหลังไม่กระทบใบนี้
+      reason: v.reason,
+      action: v.action ?? null,
+      issuedBy: u.id,
+    })
     .returning({ id: warnings.id });
   await audit(u.id, "issue_warning", "warning", w.id, { employeeId: v.employeeId, level: v.level, category: v.category });
 
   if (v.notify) {
     await notify([...(await userIdsOfEmployees([v.employeeId])).values()], {
       kind: "warning",
-      title: `คุณได้รับ${WARNING_LEVEL[v.level].short}`,
+      title: `คุณได้รับ${lv.name}`,
       body: "กรุณาเปิดอ่านรายละเอียดและกดรับทราบ",
       href: `/warnings/${w.id}`,
     });

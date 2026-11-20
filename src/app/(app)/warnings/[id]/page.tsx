@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { and, eq, ne } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { Sarabun } from "next/font/google";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
@@ -11,12 +12,30 @@ import { SubmitButton } from "@/components/submit-button";
 import { Badge, Card, Field, Flash, Textarea } from "@/components/ui";
 import { isHR, requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/payroll-run";
-import { fmtDate, fmtDateTime } from "@/lib/time";
+import { fmtDateLong, fmtDateTime } from "@/lib/time";
 import { cn, fullName } from "@/lib/util";
-import { validUntil, WARNING_LEVEL, WARNING_STATUS, warningStatus } from "@/lib/warning";
+import { effectiveUntil, WARNING_STATUS, warningStatus } from "@/lib/warning";
+import { getWarningConfig } from "@/lib/warning-config";
 import { acknowledgeWarning, voidWarning } from "../actions";
 
-export const metadata = { title: "ใบเตือน" };
+export const metadata = { title: "หนังสือเตือน" };
+
+// ฟอนต์เอกสารทางการ (สารบรรณ) ใช้เฉพาะตัวหนังสือเตือน
+const sarabun = Sarabun({ subsets: ["thai", "latin"], weight: ["400", "600", "700"], display: "swap" });
+
+
+/** ช่องลงลายมือชื่อแบบเส้นประ */
+function Signature({ role, name, sub }: { role: string; name?: string; sub?: React.ReactNode }) {
+  return (
+    <div className="text-center">
+      <p className="whitespace-nowrap">
+        ลงชื่อ <span className="inline-block w-44 border-b border-dotted border-stone-500 align-bottom" /> {role}
+      </p>
+      <p className="mt-1.5">( {name ?? <span className="inline-block w-40 border-b border-dotted border-stone-500 align-bottom" />} )</p>
+      {sub && <div className="mt-1 text-[13px] text-stone-600">{sub}</div>}
+    </div>
+  );
+}
 
 export default async function WarningPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
   const u = await requireUser();
@@ -33,176 +52,209 @@ export default async function WarningPage({ params, searchParams }: { params: Pr
     .leftJoin(users, eq(warnings.issuedBy, users.id))
     .leftJoin(issuer, eq(users.employeeId, issuer.id))
     .where(eq(warnings.id, id));
-  // พนักงานเห็นเฉพาะใบเตือนของตัวเอง
-  if (!row || (!hr && row.w.employeeId !== u.employeeId)) notFound();
+  // พนักงานเห็นเฉพาะของตัวเอง และไม่เห็นใบที่ถูกยกเลิก
+  if (!row || (!hr && (row.w.employeeId !== u.employeeId || row.w.voidedAt))) notFound();
   const { w, e } = row;
-  const [company, count] = await Promise.all([
-    getSettings(),
-    db.$count(warnings, and(eq(warnings.employeeId, e.id), ne(warnings.id, w.id))),
-  ]);
+  const [company, others] = await Promise.all([getSettings(), db.$count(warnings, and(eq(warnings.employeeId, e.id), ne(warnings.id, w.id)))]);
   const status = warningStatus(w);
   const mine = w.employeeId === u.employeeId;
-  const lv = WARNING_LEVEL[w.level];
+  const issuerName = row.issuer ? fullName(row.issuer) : undefined;
+  const until = fmtDateLong(effectiveUntil(w));
+  const lv = (await getWarningConfig()).level[w.level];
+  const TITLE = { [w.level]: lv.docTitle } as Record<string, string>;
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-6xl">
       <div className="no-print mb-4 flex items-center justify-between gap-3">
-        <Link href={hr ? `/warnings?employee=${e.id}` : "/account#warnings"} className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:text-brand-900">
+        <Link href={hr ? `/warnings?employee=${e.id}` : "/warnings"} className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:text-brand-900">
           <Icon name="chevronLeft" className="size-4" />
-          {hr ? "ใบเตือนทั้งหมดของพนักงานคนนี้" : "โปรไฟล์ของฉัน"}
+          {hr ? "ใบเตือนทั้งหมดของพนักงานคนนี้" : "ใบเตือนของฉัน"}
         </Link>
         <PrintButton />
       </div>
       <Flash ok={sp.ok} error={sp.error} />
 
-      <article className={cn("overflow-hidden rounded-3xl border bg-white shadow-card print:rounded-none print:border-0 print:shadow-none", status === "voided" ? "border-stone-300" : "border-brand-200/80")}>
-        {/* หัวเอกสาร */}
-        <header className="flex flex-col gap-4 border-b border-brand-100 px-6 pt-6 pb-5 sm:flex-row sm:items-start sm:justify-between sm:px-8">
-          <div className="flex items-start gap-3">
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-brand-200">
-              <img src="/kin-logo.png" alt="" width={40} height={40} />
-            </span>
-            <div>
-              <p className="font-semibold leading-snug text-brand-900">{company.name}</p>
-              {company.address && <p className="mt-0.5 text-xs leading-relaxed text-stone-500">{company.address}</p>}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,210mm)_1fr]">
+        {/* ===================== ตัวเอกสาร (ส่วนที่พิมพ์) ===================== */}
+        <article
+          className={cn(
+            sarabun.className,
+            "relative overflow-hidden bg-white px-6 py-8 text-[15px] leading-[1.9] text-stone-900 shadow-lift ring-1 ring-stone-200 sm:px-[18mm] sm:py-[16mm] print:p-0 print:text-[14.5px] print:leading-[1.7] print:shadow-none print:ring-0",
+          )}
+        >
+          {status === "voided" && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
+              <span className="-rotate-[28deg] rounded-xl border-[6px] border-rose-500/40 px-10 py-2 text-7xl font-bold tracking-widest text-rose-500/40">ยกเลิก</span>
             </div>
-          </div>
-          <div className="shrink-0 sm:text-right">
-            <p className="text-xs text-stone-500">เลขที่ W-{String(w.id).padStart(5, "0")}</p>
-            <p className="text-sm text-stone-600">ออกเมื่อ {fmtDate(w.issuedAt)}</p>
-            <span className="mt-1 inline-block">
-              <Badge tone={WARNING_STATUS[status].tone}>{WARNING_STATUS[status].label}</Badge>
-            </span>
-          </div>
-        </header>
+          )}
 
-        <div className="space-y-6 px-6 py-6 sm:px-8">
-          <div className="text-center">
-            <p className={cn("inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold", w.level === "final" ? "bg-rose-50 text-rose-700" : w.level === "written" ? "bg-amber-50 text-amber-800" : "bg-brand-50 text-brand-800")}>
-              <Icon name="flag" className="size-4" />
-              {lv.label}
+          {/* หัวกระดาษ */}
+          <header className="flex items-center gap-4 border-b-2 border-stone-800 pb-4">
+            <img src="/kin-logo.png" alt="" width={64} height={64} className="shrink-0" />
+            <div className="min-w-0 leading-snug">
+              <p className="text-[17px] font-bold">{company.name}</p>
+              {company.address && <p className="text-[13px] text-stone-700">{company.address}</p>}
+              {company.taxId && <p className="text-[13px] text-stone-700">เลขประจำตัวผู้เสียภาษี {company.taxId}</p>}
+            </div>
+          </header>
+
+          <h1 className="mt-6 text-center text-[22px] font-bold tracking-wide print:mt-4">{TITLE[w.level]}</h1>
+
+          <div className="mt-4 flex flex-col justify-between gap-1 sm:flex-row">
+            <p>เลขที่ W-{String(w.id).padStart(5, "0")}</p>
+            <p>วันที่ {fmtDateLong(w.issuedAt)}</p>
+          </div>
+
+          <table className="mt-4 w-full border-collapse align-top [&_td]:align-top [&_td]:py-0.5">
+            <tbody>
+              <tr>
+                <td className="w-16 font-semibold">เรื่อง</td>
+                <td>ตักเตือนกรณี{w.category}</td>
+              </tr>
+              <tr>
+                <td className="font-semibold">เรียน</td>
+                <td>
+                  {fullName(e)}
+                  <span className="block text-stone-700">
+                    รหัสพนักงาน {e.code}
+                    {row.pos ? `  ตำแหน่ง ${row.pos}` : ""}
+                    {row.branch ? `  สังกัด ${row.branch}` : ""}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* เนื้อความ */}
+          <div className="mt-5 space-y-3 text-justify [&>p]:indent-[2.5em]">
+            <p>ด้วยปรากฏว่า เมื่อวันที่ {fmtDateLong(w.incidentDate)} ท่านได้กระทำความผิดกรณี{w.category} โดยมีรายละเอียดดังนี้</p>
+            <p className="whitespace-pre-line">{w.reason}</p>
+            <p>
+              การกระทำดังกล่าวเป็นการฝ่าฝืนข้อบังคับเกี่ยวกับการทำงานของบริษัทฯ บริษัทฯ จึงขอ
+              {w.level === "verbal" ? "ตักเตือนด้วยวาจาและบันทึกไว้เป็นหลักฐาน" : "ตักเตือนท่านเป็นลายลักษณ์อักษร"} เพื่อให้ท่านปรับปรุงแก้ไขและไม่กระทำผิดซ้ำอีก
             </p>
-            {status === "voided" && <p className="mt-2 text-sm font-medium text-stone-500">ใบเตือนนี้ถูกยกเลิกแล้ว — {w.voidReason}</p>}
-          </div>
-
-          {/* ผู้รับ */}
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-2xl bg-brand-50/60 p-4 text-sm sm:grid-cols-4 print:bg-transparent print:ring-1 print:ring-brand-100">
-            {[
-              ["เรียน", fullName(e)],
-              ["รหัสพนักงาน", e.code],
-              ["ตำแหน่ง", row.pos ?? "-"],
-              ["สาขา", row.branch ?? "-"],
-            ].map(([k, v]) => (
-              <div key={k}>
-                <dt className="text-xs text-stone-500">{k}</dt>
-                <dd className="font-medium break-words text-brand-900">{v}</dd>
-              </div>
-            ))}
-          </dl>
-
-          {/* เนื้อหา */}
-          <section className="space-y-4 text-[15px] leading-relaxed text-brand-900 sm:text-sm">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-brand-100 p-3">
-                <p className="text-xs text-stone-500">ประเภทความผิด</p>
-                <p className="font-medium">{w.category}</p>
-              </div>
-              <div className="rounded-2xl border border-brand-100 p-3">
-                <p className="text-xs text-stone-500">วันที่เกิดเหตุ</p>
-                <p className="font-medium">{fmtDate(w.incidentDate)}</p>
-              </div>
-              <div className="rounded-2xl border border-brand-100 p-3">
-                <p className="text-xs text-stone-500">มีผลถึง</p>
-                <p className="font-medium">{fmtDate(validUntil(w.incidentDate))}</p>
-              </div>
-            </div>
-            <div>
-              <h3 className="mb-1 font-semibold">รายละเอียดการกระทำผิด</h3>
-              <p className="whitespace-pre-line text-stone-700">{w.reason}</p>
-            </div>
-            {w.action && (
-              <div>
-                <h3 className="mb-1 font-semibold">สิ่งที่ต้องปรับปรุง</h3>
-                <p className="whitespace-pre-line text-stone-700">{w.action}</p>
-              </div>
+            {w.action && <p className="whitespace-pre-line">ทั้งนี้ ให้ท่านปฏิบัติดังนี้ {w.action}</p>}
+            {/* ข้อความท้ายหนังสือ: HR ตั้งได้ที่ ตั้งค่าองค์กร → ใบเตือน */}
+            {w.level === "verbal" ? (
+              lv.closingText && <p>{lv.closingText}</p>
+            ) : (
+              <p>
+                {lv.docTitle}ฉบับนี้มีผลบังคับนับแต่วันที่ท่านได้กระทำความผิด จนถึงวันที่ {until}
+                {lv.closingText ? ` ${lv.closingText}` : ""}
+              </p>
             )}
-            <p className="rounded-2xl bg-stone-50 p-3 text-xs text-stone-600 print:bg-transparent print:p-0">
-              บริษัทฯ ขอตักเตือนให้ท่านปฏิบัติตามระเบียบข้อบังคับของบริษัทฯ อย่างเคร่งครัด
-              {w.level === "final" ? " หากกระทำผิดซ้ำในเรื่องเดียวกันภายในกำหนด บริษัทฯ อาจพิจารณาเลิกจ้างโดยไม่จ่ายค่าชดเชยตามกฎหมาย" : " หากกระทำผิดซ้ำ บริษัทฯ จะพิจารณาดำเนินการทางวินัยในขั้นต่อไป"}
-            </p>
+            <p>จึงเรียนมาเพื่อทราบและถือปฏิบัติโดยเคร่งครัด</p>
+          </div>
+
+          {/* ผู้ออกหนังสือ */}
+          <div className="mt-10 flex justify-end print:mt-6 print:break-inside-avoid">
+            <div className="text-center">
+              <p className="mb-8 print:mb-6">ขอแสดงความนับถือ</p>
+              <Signature role="ผู้ออกหนังสือ" name={issuerName} sub="ฝ่ายบุคคล" />
+            </div>
+          </div>
+
+          {/* การรับทราบ */}
+          <section className="mt-10 border-t border-stone-300 pt-5 print:mt-6 print:pt-3 print:break-inside-avoid">
+            <p className="font-semibold">การรับทราบของพนักงาน</p>
+            <p className="indent-[2.5em]">ข้าพเจ้าได้รับและอ่านทำความเข้าใจ{TITLE[w.level]}ฉบับนี้แล้ว</p>
+            <div className="mt-8 grid gap-8 sm:grid-cols-2 print:mt-6 print:grid-cols-2">
+
+              <Signature
+                role="ผู้รับทราบ"
+                name={fullName(e)}
+                sub={w.acknowledgedAt ? `รับทราบผ่านระบบ KIN HR เมื่อ ${fmtDateTime(w.acknowledgedAt)} น.` : "วันที่ ........ / ........ / ........"}
+              />
+              <Signature role="พยาน" sub="วันที่ ........ / ........ / ........" />
+            </div>
           </section>
 
-          {/* ลงชื่อ */}
-          <section className="grid gap-6 border-t border-brand-100 pt-5 text-sm sm:grid-cols-2 print:break-inside-avoid">
-            <div>
-              <p className="text-xs text-stone-500">ผู้ออกใบเตือน</p>
-              <p className="font-medium text-brand-900">{row.issuer ? fullName(row.issuer) : (row.issuerUser ?? "ฝ่ายบุคคล")}</p>
-              <p className="text-xs text-stone-500">ฝ่ายบุคคล · {fmtDateTime(w.issuedAt)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-stone-500">พนักงานรับทราบ</p>
-              {w.acknowledgedAt ? (
-                <>
-                  <p className="inline-flex items-center gap-1 font-medium text-emerald-700">
-                    <Icon name="checkCircle" className="size-4" />
-                    รับทราบแล้วผ่านระบบ
-                  </p>
-                  <p className="text-xs text-stone-500">{fmtDateTime(w.acknowledgedAt)}</p>
-                </>
-              ) : (
-                <p className="font-medium text-amber-700">ยังไม่รับทราบ</p>
-              )}
-            </div>
+          {status === "voided" && (
+            <p className="mt-8 border-t border-rose-300 pt-3 text-[13px] text-rose-700">
+              ยกเลิกเมื่อ {fmtDateTime(w.voidedAt)} น. เหตุผล: {w.voidReason}
+            </p>
+          )}
+        </article>
+
+        {/* ===================== แผงข้าง (ไม่พิมพ์) ===================== */}
+        <aside className="no-print space-y-5">
+          <Card title="สถานะ">
+            <dl className="space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-stone-500">สถานะ</dt>
+                <dd>
+                  <Badge tone={WARNING_STATUS[status].tone}>{WARNING_STATUS[status].label}</Badge>
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-stone-500">มีผลถึง</dt>
+                <dd className="font-medium text-brand-900">{until}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-stone-500">ออกโดย</dt>
+                <dd className="text-right font-medium text-brand-900">
+                  {issuerName ?? row.issuerUser ?? "ฝ่ายบุคคล"}
+                  <span className="block text-xs font-normal text-stone-500">{fmtDateTime(w.issuedAt)}</span>
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-stone-500">พนักงานรับทราบ</dt>
+                <dd className={cn("text-right font-medium", w.acknowledgedAt ? "text-emerald-700" : "text-amber-700")}>
+                  {w.acknowledgedAt ? fmtDateTime(w.acknowledgedAt) : "ยังไม่รับทราบ"}
+                </dd>
+              </div>
+            </dl>
             {w.employeeNote && (
-              <div className="sm:col-span-2">
+              <div className="mt-4 rounded-2xl bg-brand-50/70 p-3 text-sm">
                 <p className="text-xs text-stone-500">คำชี้แจงของพนักงาน</p>
-                <p className="mt-0.5 rounded-2xl bg-brand-50/60 p-3 whitespace-pre-line text-brand-900">{w.employeeNote}</p>
+                <p className="mt-0.5 whitespace-pre-line text-brand-900">{w.employeeNote}</p>
               </div>
             )}
-          </section>
-        </div>
-      </article>
-
-      {/* พนักงาน: กดรับทราบ */}
-      {mine && !w.acknowledgedAt && status !== "voided" && (
-        <Card title="รับทราบใบเตือน" subtitle="การกดรับทราบไม่ได้แปลว่ายอมรับว่ากระทำผิด — คุณสามารถเขียนชี้แจงได้" className="no-print mt-5">
-          <form action={acknowledgeWarning} className="space-y-3">
-            <input type="hidden" name="id" value={w.id} />
-            <Field label="คำชี้แจง (ไม่บังคับ)">
-              <Textarea name="employeeNote" rows={3} maxLength={1000} placeholder="ชี้แจงเหตุผลหรือข้อเท็จจริงเพิ่มเติมถึงฝ่ายบุคคล" />
-            </Field>
-            <SubmitButton>รับทราบ</SubmitButton>
-          </form>
-        </Card>
-      )}
-
-      {/* HR: ข้อมูลประกอบ + ยกเลิก */}
-      {hr && (
-        <div className="no-print mt-5 grid gap-5 sm:grid-cols-2">
-          <Card title="ประวัติของพนักงานคนนี้">
-            <p className="text-sm text-stone-600">มีใบเตือนอื่นอีก {count} ใบ</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Link href={`/warnings?employee=${e.id}`} className="rounded-full border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-800 hover:bg-brand-50">
-                ดูประวัติทั้งหมด
-              </Link>
-              <Link href={`/warnings/new?employee=${e.id}`} className="rounded-full border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-800 hover:bg-brand-50">
-                ออกใบเตือนใหม่
-              </Link>
-            </div>
+            {status === "voided" && <p className="mt-4 rounded-2xl bg-stone-100 p-3 text-sm text-stone-600">ยกเลิกแล้ว: {w.voidReason}</p>}
           </Card>
-          {status !== "voided" && (
-            <Card title="ยกเลิกใบเตือน" subtitle="เช่น ออกผิดคน หรือสอบข้อเท็จจริงแล้วไม่มีความผิด — ประวัติยังคงเก็บไว้">
-              <form action={voidWarning} className="space-y-3">
+
+          {/* พนักงาน: กดรับทราบ */}
+          {mine && !w.acknowledgedAt && status !== "voided" && (
+            <Card title="รับทราบใบเตือน" subtitle="การกดรับทราบไม่ได้แปลว่ายอมรับว่ากระทำผิด — เขียนชี้แจงถึงฝ่ายบุคคลได้">
+              <form action={acknowledgeWarning} className="space-y-3">
                 <input type="hidden" name="id" value={w.id} />
-                <Textarea name="voidReason" rows={2} required minLength={5} placeholder="เหตุผลที่ยกเลิก" />
-                <SubmitButton variant="secondary" confirm="ยืนยันยกเลิกใบเตือนนี้?">
-                  ยกเลิกใบเตือน
-                </SubmitButton>
+                <Field label="คำชี้แจง (ไม่บังคับ)">
+                  <Textarea name="employeeNote" rows={3} maxLength={1000} placeholder="ชี้แจงเหตุผลหรือข้อเท็จจริงเพิ่มเติม" />
+                </Field>
+                <SubmitButton>รับทราบ</SubmitButton>
               </form>
             </Card>
           )}
-        </div>
-      )}
+
+          {/* HR */}
+          {hr && (
+            <>
+              <Card title="ประวัติของพนักงานคนนี้">
+                <p className="text-sm text-stone-600">มีใบเตือนอื่นอีก {others} ใบ</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Link href={`/warnings?employee=${e.id}`} className="rounded-full border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-800 hover:bg-brand-50">
+                    ดูประวัติทั้งหมด
+                  </Link>
+                  <Link href={`/warnings/new?employee=${e.id}`} className="rounded-full border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-800 hover:bg-brand-50">
+                    ออกใบเตือนใหม่
+                  </Link>
+                </div>
+              </Card>
+              {status !== "voided" && (
+                <Card title="ยกเลิกใบเตือน" subtitle="เช่น ออกผิดคน หรือสอบข้อเท็จจริงแล้วไม่มีความผิด — ประวัติยังเก็บไว้">
+                  <form action={voidWarning} className="space-y-3">
+                    <input type="hidden" name="id" value={w.id} />
+                    <Textarea name="voidReason" rows={2} required minLength={5} placeholder="เหตุผลที่ยกเลิก" />
+                    <SubmitButton variant="secondary" confirm="ยืนยันยกเลิกใบเตือนนี้?">
+                      ยกเลิกใบเตือน
+                    </SubmitButton>
+                  </form>
+                </Card>
+              )}
+            </>
+          )}
+        </aside>
+      </div>
     </div>
   );
 }

@@ -2,7 +2,8 @@ import { and, asc, desc, eq, gte, lt, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { attendanceLogs, branches, employees, users } from "@/db/schema";
 import { SubmitButton } from "@/components/submit-button";
-import { DateRangeNav, FilterBar, FilterSelect } from "@/components/filter-bar";
+import { EmployeePicker } from "@/components/employee-picker";
+import { DateRangeNav, FilterBar } from "@/components/filter-bar";
 import { Badge, Card, Field, Flash, Input, Select, Table, btn } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
 import { parseRange } from "@/lib/range";
@@ -34,7 +35,7 @@ export default async function LogsPage({ searchParams }: { searchParams: Promise
       .orderBy(desc(attendanceLogs.punchedAt)),
     db.select().from(employees).where(ne(employees.status, "resigned")).orderBy(asc(employees.code)),
   ]);
-  const empOptions = emps.map((e) => ({ value: e.id, label: `${e.code} ${fullName(e)}` }));
+  const empOptions = emps.map((e) => ({ id: e.id, code: e.code, name: fullName(e), nickname: e.nickname }));
   const back = r.single ? `/attendance/logs?date=${r.from}` : `/attendance/logs?from=${r.from}&to=${r.to}`;
 
   return (
@@ -52,7 +53,15 @@ export default async function LogsPage({ searchParams }: { searchParams: Promise
             maxDays={62}
             sublabel={r.single ? (r.from === r.today ? "วันนี้" : undefined) : `${r.days} วัน`}
           />
-          <FilterSelect param="employee" value={sp.employee ?? ""} placeholder="พนักงานทุกคน" options={empOptions} className="min-w-52 flex-1 sm:flex-none" />
+          <EmployeePicker
+            key={sp.employee ?? "all"}
+            variant="filter"
+            syncParam="employee"
+            allowClear="พนักงาน: ทั้งหมด"
+            defaultValue={Number(sp.employee) || undefined}
+            options={empOptions}
+            className="min-w-60 flex-1 sm:max-w-80"
+          />
           <span className="ml-auto hidden px-3 text-sm text-stone-500 md:inline">{rows.length} รายการ</span>
         </FilterBar>
         {/* 8 ค่าเดิม รวมเหลือ 5 คอลัมน์ให้พอดีกรอบ (ไม่ต้องเลื่อนซ้าย-ขวา) */}
@@ -109,9 +118,10 @@ export default async function LogsPage({ searchParams }: { searchParams: Promise
       </div>
       <Card title="บันทึกเวลาแทนพนักงาน">
         <form action={addManualPunch} className="space-y-3">
-          <Field label="พนักงาน">
-            <Select name="employeeId" required placeholder="- เลือก -" options={empOptions} />
-          </Field>
+          <div>
+            <span className="mb-1 block text-sm font-medium text-brand-800">พนักงาน</span>
+            <EmployeePicker name="employeeId" required options={empOptions} />
+          </div>
           <div className="grid grid-cols-3 gap-2">
             <Field label="ประเภท">
               <Select

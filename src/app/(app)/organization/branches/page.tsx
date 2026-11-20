@@ -25,7 +25,7 @@ export default async function BranchesPage({ searchParams }: { searchParams: Pro
         <Flash ok={sp.ok} error={sp.error} />
         <Table head={["สาขา", "พิกัด / รัศมีลงเวลา", "พนักงาน", "สถานะ", ""]} empty={!rows.length}>
           {rows.map(({ b, n }) => (
-            <tr key={b.id}>
+            <tr key={b.id} data-href={`/organization/branches?edit=${b.id}`}>
               <td>
                 <span className="block font-medium text-brand-900">{b.name}</span>
                 <span className="block text-xs font-normal text-stone-500">

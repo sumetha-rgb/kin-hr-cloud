@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { cn } from "@/lib/util";
 import { Avatar } from "./avatar";
 import { KinLogo } from "./brand";
@@ -10,12 +10,41 @@ import { Icon } from "./icons";
 
 export { Icon }; // ไฟล์เดิมหลายไฟล์ import Icon จากที่นี่
 
-export type NavItem = { href: string; label: string; sub?: string; icon: string; short?: string; badge?: number };
+export type NavItem = {
+  href: string;
+  label: string;
+  sub?: string;
+  icon: string;
+  short?: string;
+  badge?: number;
+  /** หัวข้อหมวดในแถบซ้าย (เช่น "ของฉัน" / "งานจัดการ") */
+  section?: string;
+  /** path อื่นที่นับเป็นเมนูนี้ด้วย */
+  match?: string[];
+};
 
-function CountBadge({ n, className }: { n?: number; className?: string }) {
+/** เลือกเมนูที่ตรงกับ path มากที่สุด (กัน /attendance กับ /attendance/me ติดไฮไลต์พร้อมกัน) */
+function activeHref(items: NavItem[], path: string): string | null {
+  let best: string | null = null;
+  let len = -1;
+  for (const it of items)
+    for (const h of [it.href, ...(it.match ?? [])]) {
+      const hit = h === "/" ? path === "/" : path === h || path.startsWith(h + "/");
+      if (hit && h.length > len) [best, len] = [it.href, h.length];
+    }
+  return best;
+}
+
+function CountBadge({ n, className, inverted }: { n?: number; className?: string; inverted?: boolean }) {
   if (!n) return null;
   return (
-    <span className={cn("inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-semibold text-white tabular-nums", className)}>
+    <span
+      className={cn(
+        "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
+        inverted ? "bg-white text-rose-600" : "bg-rose-500 text-white",
+        className,
+      )}
+    >
       {n > 99 ? "99+" : n}
     </span>
   );
@@ -31,7 +60,12 @@ export function Sidebar({
   items: NavItem[];
   /** ไม่เกิน 4 รายการ แสดงในแถบล่างของมือถือ (ช่องที่ 5 คือปุ่ม "เมนู") */
   mobileItems: NavItem[];
-  user: { name: string; role: string; employeeId: number | null; photoVersion: number | null };
+  user: {
+    name: string;
+    role: string;
+    employeeId: number | null;
+    photoVersion: number | null;
+  };
   logoutAction: () => Promise<void>;
   /** จำนวนการแจ้งเตือนที่ยังไม่ได้อ่าน */
   unread?: number;
@@ -39,31 +73,43 @@ export function Sidebar({
   const path = usePathname();
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [path]);
-  const isActive = (href: string) => (href === "/" ? path === "/" : path === href || path.startsWith(href + "/"));
+  const current = activeHref(items, path);
+  const currentMobile = activeHref(mobileItems, path);
+  const hasSections = items.some((it) => it.section);
 
   const nav = (
     <nav className="flex flex-col gap-0.5 px-3 py-4">
-      <div className="px-3 pb-2 text-[11px] font-medium tracking-[0.14em] text-stone-400 uppercase">เมนู</div>
-      {items.map((it) => {
-        const active = isActive(it.href);
+      {!hasSections && <div className="px-3 pb-2 text-[11px] font-medium tracking-[0.14em] text-stone-400 uppercase">เมนู</div>}
+      {items.map((it, i) => {
+        const active = it.href === current;
+        const newSection = it.section && it.section !== items[i - 1]?.section;
         return (
-          <Link
-            key={it.href}
-            href={it.href}
-            className={cn(
-              "group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[15px] transition",
-              active ? "bg-gradient-to-r from-brand-400 to-brand-500 font-medium text-white shadow-md shadow-brand-500/30" : "text-stone-600 hover:bg-brand-50 hover:text-brand-900",
-            )}
-          >
-            <span className={cn("flex size-8 items-center justify-center rounded-xl transition", active ? "bg-white/25" : "bg-brand-50 text-brand-500 group-hover:bg-brand-100")}>
-              <Icon name={it.icon} className="size-[18px]" />
-            </span>
-            <span className="min-w-0 flex-1 leading-tight">
-              {it.label}
-              {it.sub && <span className={cn("block text-[11px] font-normal", active ? "text-white/85" : "text-stone-400")}>{it.sub}</span>}
-            </span>
-            <CountBadge n={it.badge} className={active ? "bg-white text-rose-600" : undefined} />
-          </Link>
+          <Fragment key={it.href}>
+            {newSection && <div className="px-3 pt-4 pb-1.5 text-xs font-semibold text-brand-500">{it.section}</div>}
+            <Link
+              href={it.href}
+              className={cn(
+                "group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[15px] transition",
+                active
+                  ? "bg-gradient-to-r from-brand-400 to-brand-500 font-medium text-white shadow-md shadow-brand-500/30"
+                  : "text-stone-600 hover:bg-brand-50 hover:text-brand-900",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex size-8 items-center justify-center rounded-xl transition",
+                  active ? "bg-white/25" : "bg-brand-50 text-brand-500 group-hover:bg-brand-100",
+                )}
+              >
+                <Icon name={it.icon} className="size-[18px]" />
+              </span>
+              <span className="min-w-0 flex-1 leading-tight">
+                {it.label}
+                {it.sub && <span className={cn("block text-[11px] font-normal", active ? "text-white/85" : "text-stone-400")}>{it.sub}</span>}
+              </span>
+              <CountBadge n={it.badge} inverted={active} />
+            </Link>
+          </Fragment>
         );
       })}
     </nav>
@@ -76,7 +122,11 @@ export function Sidebar({
         <Link href="/">
           <KinLogo size={36} />
         </Link>
-        <Link href="/notifications" className="relative ml-auto flex size-10 items-center justify-center rounded-full text-brand-700 active:bg-brand-50" aria-label={`การแจ้งเตือน${unread ? ` (${unread} ใหม่)` : ""}`}>
+        <Link
+          href="/notifications"
+          className="relative ml-auto flex size-10 items-center justify-center rounded-full text-brand-700 active:bg-brand-50"
+          aria-label={`การแจ้งเตือน${unread ? ` (${unread} ใหม่)` : ""}`}
+        >
           <Icon name="bell" className="size-[22px]" />
           <CountBadge n={unread} className="absolute -top-0.5 -right-0.5 h-[18px] min-w-[18px] px-1 text-[10px] ring-2 ring-white" />
         </Link>
@@ -128,17 +178,22 @@ export function Sidebar({
         aria-label="เมนูหลัก"
       >
         {mobileItems.slice(0, 4).map((it) => {
-          const active = isActive(it.href);
+          const active = it.href === currentMobile;
           const scan = it.icon === "finger";
           return (
-            <Link key={it.href} href={it.href} className={cn("flex flex-col items-center gap-1 py-2.5 text-[11px]", active ? "font-semibold text-brand-800" : "text-stone-500")}>
+            <Link
+              key={it.href}
+              href={it.href}
+              className={cn("flex flex-col items-center gap-1 py-2.5 text-[11px]", active ? "font-semibold text-brand-800" : "text-stone-500")}
+            >
               {scan ? (
                 <span className="-mt-7 flex size-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-700 text-white shadow-lg shadow-brand-700/40 ring-4 ring-white">
                   <Icon name="finger" className="size-7" />
                 </span>
               ) : (
-                <span className={cn("flex h-7 w-12 items-center justify-center rounded-full transition", active && "bg-brand-100")}>
+                <span className={cn("relative flex h-7 w-12 items-center justify-center rounded-full transition", active && "bg-brand-100")}>
                   <Icon name={it.icon} className="size-[22px]" />
+                  <CountBadge n={it.badge} className="absolute -top-1.5 right-0.5 h-[18px] min-w-[18px] px-1 text-[10px] ring-2 ring-white" />
                 </span>
               )}
               <span className="leading-none">{it.short ?? it.label}</span>

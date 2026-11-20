@@ -21,7 +21,7 @@ export default async function ShiftsPage({ searchParams }: { searchParams: Promi
         <Flash ok={sp.ok} error={sp.error} />
         <Table head={["ชื่อกะ", "เวลา", "พัก", "สายได้", "วันทำงาน", ""]} empty={!rows.length}>
           {rows.map((s) => (
-            <tr key={s.id}>
+            <tr key={s.id} data-href={`/organization/shifts?edit=${s.id}`}>
               <td className="font-medium">{s.name}</td>
               <td>
                 {s.startTime} – {s.endTime} {s.endTime <= s.startTime && <Badge tone="amber">ข้ามวัน</Badge>}

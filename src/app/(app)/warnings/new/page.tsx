@@ -1,13 +1,15 @@
 import { and, asc, desc, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
-import { employees, warnings } from "@/db/schema";
+import { branches, employees, warnings } from "@/db/schema";
+import { EmployeePicker } from "@/components/employee-picker";
 import { Icon } from "@/components/icons";
 import { SubmitButton } from "@/components/submit-button";
 import { Badge, Card, Checkbox, Field, Flash, Input, MoreLink, PageHeader, Select, Textarea } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
 import { bkkDateStr, fmtDate } from "@/lib/time";
 import { cn, fullName } from "@/lib/util";
-import { isActiveWarning, WARNING_CATEGORIES, WARNING_LEVEL } from "@/lib/warning";
+import { isActiveWarning } from "@/lib/warning";
+import { getWarningConfig } from "@/lib/warning-config";
 import { issueWarning } from "../actions";
 
 export const metadata = { title: "ออกใบเตือน" };
@@ -16,11 +18,17 @@ export default async function NewWarningPage({ searchParams }: { searchParams: P
   await requireRole("admin", "hr");
   const sp = await searchParams;
   const empId = Number(sp.employee) || undefined;
-  const [emps, history] = await Promise.all([
+  const [emps, history, br] = await Promise.all([
     db.select().from(employees).where(ne(employees.status, "resigned")).orderBy(asc(employees.code)),
     empId ? db.select().from(warnings).where(and(eq(warnings.employeeId, empId))).orderBy(desc(warnings.incidentDate)) : Promise.resolve([]),
+    db.select({ id: branches.id, name: branches.name }).from(branches),
   ]);
+  const brName = new Map(br.map((b) => [b.id, b.name]));
   const active = history.filter((w) => isActiveWarning(w));
+  const cfg = await getWarningConfig();
+  const levels = cfg.levels.filter((l) => l.enabled);
+  // ค่าเริ่มต้น: ถ้ามีใบที่ยังมีผลอยู่ ให้เลือกระดับถัดไป
+  const defaultLevel = levels[Math.min(active.length ? 1 : 0, levels.length - 1)]?.level;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -35,7 +43,7 @@ export default async function NewWarningPage({ searchParams }: { searchParams: P
             <ul className="mt-1 space-y-0.5 text-amber-800">
               {active.slice(0, 3).map((w) => (
                 <li key={w.id}>
-                  {fmtDate(w.incidentDate)} · {WARNING_LEVEL[w.level].short} · {w.category}
+                  {fmtDate(w.incidentDate)} · {cfg.level[w.level].name} · {w.category}
                 </li>
               ))}
             </ul>
@@ -46,44 +54,49 @@ export default async function NewWarningPage({ searchParams }: { searchParams: P
       <form action={issueWarning} className="space-y-5">
         <Card title="พนักงานและเหตุการณ์">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="พนักงาน" className="sm:col-span-2">
-              <Select
+            <div className="sm:col-span-2">
+              <span className="mb-1 block text-sm font-medium text-brand-800">พนักงาน</span>
+              <EmployeePicker
                 name="employeeId"
                 required
-                placeholder="- เลือกพนักงาน -"
-                defaultValue={empId ?? ""}
-                options={emps.map((e) => ({ value: e.id, label: `${e.code} ${fullName(e)}${e.nickname ? ` (${e.nickname})` : ""}` }))}
+                defaultValue={empId}
+                syncParam="employee"
+                options={emps.map((e) => ({ id: e.id, code: e.code, name: fullName(e), nickname: e.nickname, sub: brName.get(e.branchId ?? -1) }))}
               />
-            </Field>
+            </div>
             <Field label="ประเภทความผิด">
-              <Select name="category" required placeholder="- เลือก -" defaultValue="" options={WARNING_CATEGORIES.map((c) => ({ value: c, label: c }))} />
+              <Select name="category" required placeholder="- เลือก -" defaultValue="" options={cfg.activeCategories.map((c) => ({ value: c, label: c }))} />
             </Field>
-            <Field label="วันที่เกิดเหตุ" hint="หนังสือเตือนมีผล 1 ปีนับจากวันนี้">
+            <Field label="วันที่เกิดเหตุ" hint="ใบเตือนนับระยะเวลามีผลจากวันนี้">
               <Input name="incidentDate" type="date" required max={bkkDateStr()} defaultValue={bkkDateStr()} />
             </Field>
           </div>
         </Card>
 
         <Card title="ระดับการเตือน">
-          <div className="grid gap-3 sm:grid-cols-3">
-            {(Object.keys(WARNING_LEVEL) as Array<keyof typeof WARNING_LEVEL>).map((k, i) => (
-              <label key={k} className="cursor-pointer">
-                <input type="radio" name="level" value={k} defaultChecked={i === (active.length ? 1 : 0)} className="peer sr-only" required />
+          <div className={cn("grid gap-3", levels.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
+            {levels.map((l) => (
+              <label key={l.level} className="cursor-pointer">
+                <input type="radio" name="level" value={l.level} defaultChecked={l.level === defaultLevel} className="peer sr-only" required />
                 <span
                   className={cn(
-                    "flex h-full flex-col gap-1 rounded-2xl border-2 border-brand-200 bg-white p-4 transition peer-checked:shadow-sm peer-focus-visible:ring-4 peer-focus-visible:ring-brand-100",
-                    k === "final" ? "peer-checked:border-rose-400 peer-checked:bg-rose-50" : k === "written" ? "peer-checked:border-amber-400 peer-checked:bg-amber-50" : "peer-checked:border-brand-500 peer-checked:bg-brand-50",
+                    "flex h-full flex-col gap-1.5 rounded-2xl border-2 border-brand-200 bg-white p-4 transition peer-checked:shadow-sm peer-focus-visible:ring-4 peer-focus-visible:ring-brand-100",
+                    l.level === "final" ? "peer-checked:border-rose-400 peer-checked:bg-rose-50" : l.level === "written" ? "peer-checked:border-amber-400 peer-checked:bg-amber-50" : "peer-checked:border-brand-500 peer-checked:bg-brand-50",
                   )}
                 >
-                  <Badge tone={WARNING_LEVEL[k].tone}>{`ระดับ ${i + 1}`}</Badge>
-                  <span className="mt-1 font-semibold text-brand-900">{WARNING_LEVEL[k].short}</span>
-                  <span className="text-xs text-stone-500">
-                    {k === "verbal" ? "ความผิดเล็กน้อย บันทึกไว้เป็นประวัติ" : k === "written" ? "เป็นลายลักษณ์อักษร มีผล 1 ปี" : "หากทำผิดซ้ำ อาจพิจารณาเลิกจ้าง"}
+                  <span className="self-start">
+                    <Badge tone={l.tone}>{`ระดับ ${l.step}`}</Badge>
                   </span>
+                  <span className="mt-1 font-semibold text-brand-900">{l.name}</span>
+                  {l.description && <span className="text-xs leading-relaxed text-stone-500">{l.description}</span>}
+                  <span className="mt-auto pt-1 text-xs text-stone-400">มีผล {l.validityMonths === 12 ? "1 ปี" : `${l.validityMonths} เดือน`}</span>
                 </span>
               </label>
             ))}
           </div>
+          <p className="mt-3 text-xs text-stone-500">
+            แก้ชื่อ คำอธิบาย ระยะเวลามีผล หรือข้อความในหนังสือได้ที่ <MoreLink href="/organization/warnings">ตั้งค่าองค์กร → ใบเตือน</MoreLink>
+          </p>
         </Card>
 
         <Card title="รายละเอียด">

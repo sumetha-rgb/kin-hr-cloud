@@ -42,7 +42,7 @@ export default async function MySlips() {
       <DesktopOnly>
         <Table head={["งวด", "รายได้", "รายการหัก", "สุทธิ", "ออกเมื่อ", ""]} empty={!rows.length}>
           {rows.map(({ i, run }) => (
-            <tr key={i.id}>
+            <tr key={i.id} data-href={`/payroll/${run.id}/slip/${i.employeeId}`}>
               <td className="font-medium">{fmtMonth(run.year, run.month)}</td>
               <td className="tabular-nums">{fmtMoney(i.gross)}</td>
               <td className="tabular-nums">{fmtMoney(Number(i.gross) - Number(i.net))}</td>

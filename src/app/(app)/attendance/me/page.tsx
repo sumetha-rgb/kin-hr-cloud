@@ -3,7 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { employees } from "@/db/schema";
-import { FilterBar, FilterSelect, StepNav } from "@/components/filter-bar";
+import { EmployeePicker } from "@/components/employee-picker";
+import { FilterBar, StepNav } from "@/components/filter-bar";
 import { DesktopOnly, MobileCard, MobileList, Stat, Table } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { loadAttendance } from "@/lib/attendance-data";
@@ -49,12 +50,14 @@ export default async function MyAttendance({ searchParams }: { searchParams: Pro
       <FilterBar>
         <StepNav label={fmtMonth(y, m)} prev={q({ month: shiftMonth(ym, -1) })} next={q({ month: shiftMonth(ym, 1) })} />
         {pickable.length > 0 && (
-          <FilterSelect
-            param="employee"
-            value={String(empId)}
-            placeholder="ตัวฉันเอง"
-            options={pickable.map((e) => ({ value: e.id, label: `${e.code} ${fullName(e)}` }))}
-            className="min-w-56 flex-1 sm:flex-none"
+          <EmployeePicker
+            key={empId}
+            variant="filter"
+            syncParam="employee"
+            allowClear={u.employeeId ? "ตัวฉันเอง" : undefined}
+            defaultValue={empId}
+            options={pickable.map((e) => ({ id: e.id, code: e.code, name: fullName(e), nickname: e.nickname }))}
+            className="min-w-60 flex-1 sm:max-w-80"
           />
         )}
       </FilterBar>
