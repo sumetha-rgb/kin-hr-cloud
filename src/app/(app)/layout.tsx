@@ -1,3 +1,6 @@
+import { and, count, eq, isNull } from "drizzle-orm";
+import { db } from "@/db";
+import { notifications } from "@/db/schema";
 import { Sidebar, type NavItem } from "@/components/sidebar";
 import { requireUser } from "@/lib/auth";
 import { ROLE_LABEL } from "@/lib/util";
@@ -7,6 +10,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   const hr = user.role === "admin" || user.role === "hr";
   const mgr = hr || user.role === "manager";
+  const [{ n: unread }] = await db
+    .select({ n: count() })
+    .from(notifications)
+    .where(and(eq(notifications.userId, user.id), isNull(notifications.readAt)));
 
   const home: NavItem = { href: "/", label: "หน้าหลัก", icon: "home" };
   const scan: NavItem = { href: "/checkin", label: "สแกนนิ้วลงเวลา", short: "สแกนนิ้ว", icon: "finger" };
@@ -21,6 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const items: NavItem[] = [
     home,
+    { href: "/notifications", label: "การแจ้งเตือน", icon: "bell", badge: unread },
     ...(user.employeeId ? [scan] : []),
     ...(hr ? [{ href: "/organization", label: "Organization", sub: "ระบบจัดการองค์กร", icon: "org" }, personnel] : []),
     attendance,
@@ -28,6 +36,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     payroll,
     ...(hr
       ? [
+          { href: "/warnings", label: "ใบเตือน", sub: "ออกใบเตือน · สรุปประวัติ", icon: "flag" },
           { href: "/reports", label: "Report", sub: "รายงาน", icon: "chart" },
           { href: "/admin", label: "ดูแลระบบ", sub: "บัญชีผู้ใช้ · ประวัติ · ตั้งค่า", icon: "shield" },
         ]
@@ -49,6 +58,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         mobileItems={mobileItems}
         user={{ name: user.displayName, role: ROLE_LABEL[user.role], employeeId: user.employeeId, photoVersion: user.photoVersion }}
         logoutAction={logout}
+        unread={unread}
       />
       <main className="px-4 pt-5 pb-32 sm:px-6 lg:ml-64 lg:px-10 lg:py-8">
         <div className="animate-in mx-auto max-w-7xl">{children}</div>

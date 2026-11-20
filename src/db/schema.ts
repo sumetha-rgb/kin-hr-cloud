@@ -44,6 +44,9 @@ export const companySettings = pgTable("company_settings", {
   demoLogin: boolean("demo_login").notNull().default(true), // แสดงปุ่มบัญชีทดลองที่หน้า login
   selfProfileEdit: boolean("self_profile_edit").notNull().default(true), // พนักงานแก้โปรไฟล์/รูปของตัวเองได้
   announcement: text("announcement"), // ประกาศถึงพนักงาน แสดงที่หน้าหลัก
+  // กุญแจ Web Push (VAPID) — ระบบสร้างให้เองครั้งแรกที่ใช้ ไม่ต้องตั้งใน Vercel
+  vapidPublicKey: text("vapid_public_key"),
+  vapidPrivateKey: text("vapid_private_key"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -297,6 +300,62 @@ export const auditLogs = pgTable("audit_logs", {
   detail: jsonb("detail"),
   createdAt: createdAt(),
 });
+
+/* ------------------------------ แจ้งเตือน -------------------------------- */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // payslip | request_new | request_decided | warning | system
+    title: text("title").notNull(),
+    body: text("body"),
+    href: text("href"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("notifications_user_idx").on(t.userId, t.readAt)],
+);
+
+/** การสมัครรับแจ้งเตือนเด้ง (Web Push) — 1 แถวต่อ 1 เบราว์เซอร์/มือถือ */
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("user_agent"),
+  createdAt: createdAt(),
+});
+
+/* ------------------------------- ใบเตือน -------------------------------- */
+export const warningLevelEnum = pgEnum("warning_level", ["verbal", "written", "final"]);
+
+export const warnings = pgTable(
+  "warnings",
+  {
+    id: serial("id").primaryKey(),
+    employeeId: integer("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    level: warningLevelEnum("level").notNull(),
+    category: text("category").notNull(), // มาสาย / ขาดงาน / ระเบียบ / พฤติกรรม / การปฏิบัติงาน / อื่น ๆ
+    incidentDate: date("incident_date").notNull(),
+    reason: text("reason").notNull(), // เหตุผล/รายละเอียดที่ HR กรอก
+    action: text("action"), // สิ่งที่ต้องปรับปรุง / มาตรการ
+    issuedBy: integer("issued_by").references(() => users.id, { onDelete: "set null" }),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+    acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }), // พนักงานกดรับทราบ
+    employeeNote: text("employee_note"), // คำชี้แจงของพนักงาน
+    voidedAt: timestamp("voided_at", { withTimezone: true }), // ยกเลิกใบเตือน
+    voidReason: text("void_reason"),
+  },
+  (t) => [index("warnings_employee_idx").on(t.employeeId)],
+);
 
 /* -------------------------------- Relations ------------------------------- */
 export const employeesRelations = relations(employees, ({ one }) => ({

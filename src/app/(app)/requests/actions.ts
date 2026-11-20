@@ -10,8 +10,9 @@ import { audit } from "@/lib/audit";
 import { canApprove } from "@/lib/approval";
 import { requireUser } from "@/lib/auth";
 import { parseForm, zBool, zDate, zTime } from "@/lib/form";
+import { hrUserIds, notify, userIdsOfEmployees } from "@/lib/notify";
 import { atBkk, eachDate } from "@/lib/time";
-import { withMsg } from "@/lib/util";
+import { REQUEST_TYPE_LABEL, withMsg } from "@/lib/util";
 
 const fail = (p: string, error: string): never => redirect(withMsg(p, { error }));
 
@@ -119,6 +120,16 @@ export async function createRequest(fd: FormData) {
   } else {
     return fail("/requests/new", "ประเภทคำขอไม่ถูกต้อง");
   }
+
+  // แจ้งผู้อนุมัติ: หัวหน้างานโดยตรง — ถ้าไม่มีหัวหน้า ส่งให้ HR ทุกคน
+  const [me] = await db.select({ managerId: employees.managerId, firstName: employees.firstName, lastName: employees.lastName }).from(employees).where(eq(employees.id, empId));
+  const approvers = me?.managerId ? [...(await userIdsOfEmployees([me.managerId])).values()] : await hrUserIds(u.id);
+  await notify(approvers, {
+    kind: "request_new",
+    title: `คำขอใหม่รออนุมัติ: ${REQUEST_TYPE_LABEL[type as keyof typeof REQUEST_TYPE_LABEL] ?? ""}`,
+    body: me ? `จาก ${me.firstName} ${me.lastName}` : undefined,
+    href: "/requests/inbox",
+  });
   redirect(withMsg("/requests", { ok: "ส่งคำขอแล้ว รอการอนุมัติ" }));
 }
 
@@ -163,5 +174,14 @@ export async function decideRequest(fd: FormData) {
     });
   }
   await audit(u.id, decision, "request", id, { type: r.type, note });
+
+  // แจ้งผู้ยื่นคำขอ
+  const requester = [...(await userIdsOfEmployees([r.employeeId])).values()];
+  await notify(requester, {
+    kind: "request_decided",
+    title: `คำขอของคุณ (${REQUEST_TYPE_LABEL[r.type]}) ${decision === "approved" ? "ได้รับการอนุมัติแล้ว" : "ไม่ได้รับการอนุมัติ"}`,
+    body: note ? `หมายเหตุ: ${note}` : undefined,
+    href: "/requests/mine",
+  });
   redirect(withMsg(P, { ok: decision === "approved" ? "อนุมัติแล้ว" : "ไม่อนุมัติแล้ว" }));
 }

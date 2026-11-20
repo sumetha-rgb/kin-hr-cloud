@@ -27,6 +27,9 @@ export const AUDIT_ACTION: Record<string, string> = {
   enable_user: "เปิดใช้งานบัญชี",
   disable_user: "ระงับบัญชี",
   update_system: "แก้ไขการตั้งค่าระบบ",
+  issue_warning: "ออกใบเตือน",
+  acknowledge_warning: "รับทราบใบเตือน",
+  void_warning: "ยกเลิกใบเตือน",
 };
 
 export const AUDIT_ENTITY: Record<string, string> = {
@@ -44,11 +47,12 @@ export const AUDIT_ENTITY: Record<string, string> = {
   leave_type: "ประเภทการลา",
   settings: "ตั้งค่าบริษัท",
   system: "ตั้งค่าระบบ",
+  warning: "ใบเตือน",
 };
 
 /** โทนสีของป้าย: เรื่องความปลอดภัย/ลบ = แดง, เงิน = ทอง, เข้าระบบ = ฟ้า */
 export function auditTone(action: string): "red" | "amber" | "gold" | "blue" | "green" | "gray" {
-  if (["login_failed", "login_locked", "delete", "delete_punch", "disable_user", "reset_device", "rejected"].includes(action)) return "red";
+  if (["login_failed", "login_locked", "delete", "delete_punch", "disable_user", "reset_device", "rejected", "issue_warning"].includes(action)) return "red";
   if (["salary_change", "finalize", "reopen", "adjust", "recalculate"].includes(action)) return "gold";
   if (["login", "register_device", "enable_user", "approved", "unlock"].includes(action)) return action === "login" ? "blue" : "green";
   if (["change_password", "update_with_password", "update_system"].includes(action)) return "amber";

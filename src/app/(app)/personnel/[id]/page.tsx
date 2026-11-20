@@ -1,13 +1,16 @@
 import { desc, eq } from "drizzle-orm";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { employeePhotos, employees, users, webauthnCredentials } from "@/db/schema";
+import { employeePhotos, employees, users, warnings, webauthnCredentials } from "@/db/schema";
+import { Icon } from "@/components/icons";
 import { PhotoUploader } from "@/components/photo-uploader";
 import { SubmitButton } from "@/components/submit-button";
-import { Badge, Card, Checkbox, Field, Flash, Input, LinkButton, PageHeader, Select } from "@/components/ui";
+import { Badge, Card, Checkbox, Field, Flash, Input, LinkButton, MoreLink, PageHeader, Select } from "@/components/ui";
 import { requireRole } from "@/lib/auth";
-import { fmtDateTime } from "@/lib/time";
+import { fmtDate, fmtDateTime } from "@/lib/time";
 import { fullName, ROLE_LABEL } from "@/lib/util";
+import { isActiveWarning, WARNING_LEVEL, WARNING_STATUS, warningStatus } from "@/lib/warning";
 import { removeCredential, saveAccount } from "../actions";
 import { EmployeeForm } from "../employee-form";
 
@@ -23,10 +26,12 @@ export default async function EmployeePage({
   const sp = await searchParams;
   const [e] = await db.select().from(employees).where(eq(employees.id, Number(id)));
   if (!e) notFound();
-  const [[account], [photo]] = await Promise.all([
+  const [[account], [photo], warns] = await Promise.all([
     db.select().from(users).where(eq(users.employeeId, e.id)),
     db.select({ at: employeePhotos.updatedAt }).from(employeePhotos).where(eq(employeePhotos.employeeId, e.id)),
+    db.select().from(warnings).where(eq(warnings.employeeId, e.id)).orderBy(desc(warnings.incidentDate)),
   ]);
+  const activeWarns = warns.filter((w) => isActiveWarning(w));
   const creds = account
     ? await db.select().from(webauthnCredentials).where(eq(webauthnCredentials.userId, account.id)).orderBy(desc(webauthnCredentials.createdAt))
     : [];
@@ -48,6 +53,43 @@ export default async function EmployeePage({
           <Card title="รูปโปรไฟล์" subtitle="พนักงานเปลี่ยนเองได้ที่หน้าโปรไฟล์">
             <PhotoUploader employeeId={e.id} name={fullName(e)} version={photo?.at.getTime() ?? null} back={`/personnel/${e.id}`} />
           </Card>
+          <Card
+            title="ประวัติใบเตือน"
+            subtitle={warns.length ? `มีผลอยู่ ${activeWarns.length} ใบ · ทั้งหมด ${warns.length} ใบ` : "ยังไม่เคยได้รับใบเตือน"}
+            actions={
+              <Link href={`/warnings/new?employee=${e.id}`} className="inline-flex items-center gap-1 rounded-full border border-brand-200 px-3 py-1 text-xs font-medium text-brand-800 hover:bg-brand-50">
+                <Icon name="plus" className="size-3.5" />
+                ออกใบเตือน
+              </Link>
+            }
+          >
+            {warns.length > 0 && (
+              <ul className="space-y-2">
+                {warns.slice(0, 4).map((w) => {
+                  const st = warningStatus(w);
+                  return (
+                    <li key={w.id}>
+                      <Link href={`/warnings/${w.id}`} className="flex items-center justify-between gap-2 rounded-2xl border border-brand-100 p-3 text-sm hover:bg-brand-50/60">
+                        <span className="min-w-0">
+                          <span className="block font-medium text-brand-900">{w.category}</span>
+                          <span className="block text-xs text-stone-500">
+                            {fmtDate(w.incidentDate)} · {WARNING_STATUS[st].label}
+                          </span>
+                        </span>
+                        <Badge tone={st === "voided" || st === "expired" ? "gray" : WARNING_LEVEL[w.level].tone}>{WARNING_LEVEL[w.level].short}</Badge>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {warns.length > 4 && (
+              <MoreLink href={`/warnings?employee=${e.id}`} className="mt-3">
+                ดูทั้งหมด {warns.length} ใบ
+              </MoreLink>
+            )}
+          </Card>
+
           <Card title="บัญชีเข้าใช้งาน">
             <form action={saveAccount} className="space-y-3">
               <input type="hidden" name="employeeId" value={e.id} />

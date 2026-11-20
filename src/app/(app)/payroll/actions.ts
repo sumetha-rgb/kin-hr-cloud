@@ -6,7 +6,9 @@ import { db } from "@/db";
 import { payrollItems, payrollRuns } from "@/db/schema";
 import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth";
+import { notify, userIdsOfEmployees } from "@/lib/notify";
 import { calculateRun, recalcItemTotals } from "@/lib/payroll-run";
+import { fmtMonth } from "@/lib/time";
 import { withMsg } from "@/lib/util";
 
 const fail = (p: string, error: string): never => redirect(withMsg(p, { error }));
@@ -68,8 +70,19 @@ export async function finalizeRun(fd: FormData) {
   } catch (e) {
     return fail(`/payroll/${id}`, (e as Error).message);
   }
-  await db.update(payrollRuns).set({ status: "finalized", finalizedAt: new Date() }).where(eq(payrollRuns.id, id));
+  const [run] = await db.update(payrollRuns).set({ status: "finalized", finalizedAt: new Date() }).where(eq(payrollRuns.id, id)).returning();
   await audit(u.id, "finalize", "payroll_run", id);
+
+  // แจ้งพนักงานทุกคนในงวดว่าสลิปออกแล้ว (ไม่ใส่ยอดเงินในข้อความ — ดูได้หลังเข้าสู่ระบบเท่านั้น)
+  const empIds = (await db.select({ e: payrollItems.employeeId }).from(payrollItems).where(eq(payrollItems.runId, id))).map((r) => r.e);
+  const userOf = await userIdsOfEmployees(empIds);
+  const empOf = new Map([...userOf].map(([emp, user]) => [user, emp]));
+  await notify([...userOf.values()], (userId) => ({
+    kind: "payslip",
+    title: `สลิปเงินเดือน${fmtMonth(run.year, run.month)}ออกแล้ว`,
+    body: "แตะเพื่อดูสลิปของคุณ",
+    href: `/payroll/${id}/slip/${empOf.get(userId)}`,
+  }));
   redirect(withMsg(`/payroll/${id}`, { ok: "ปิดงวดแล้ว พนักงานดูสลิปได้" }));
 }
 

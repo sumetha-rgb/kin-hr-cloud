@@ -10,19 +10,31 @@ import { Icon } from "./icons";
 
 export { Icon }; // ไฟล์เดิมหลายไฟล์ import Icon จากที่นี่
 
-export type NavItem = { href: string; label: string; sub?: string; icon: string; short?: string };
+export type NavItem = { href: string; label: string; sub?: string; icon: string; short?: string; badge?: number };
+
+function CountBadge({ n, className }: { n?: number; className?: string }) {
+  if (!n) return null;
+  return (
+    <span className={cn("inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-semibold text-white tabular-nums", className)}>
+      {n > 99 ? "99+" : n}
+    </span>
+  );
+}
 
 export function Sidebar({
   items,
   mobileItems,
   user,
   logoutAction,
+  unread = 0,
 }: {
   items: NavItem[];
   /** ไม่เกิน 4 รายการ แสดงในแถบล่างของมือถือ (ช่องที่ 5 คือปุ่ม "เมนู") */
   mobileItems: NavItem[];
   user: { name: string; role: string; employeeId: number | null; photoVersion: number | null };
   logoutAction: () => Promise<void>;
+  /** จำนวนการแจ้งเตือนที่ยังไม่ได้อ่าน */
+  unread?: number;
 }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
@@ -46,10 +58,11 @@ export function Sidebar({
             <span className={cn("flex size-8 items-center justify-center rounded-xl transition", active ? "bg-white/25" : "bg-brand-50 text-brand-500 group-hover:bg-brand-100")}>
               <Icon name={it.icon} className="size-[18px]" />
             </span>
-            <span className="leading-tight">
+            <span className="min-w-0 flex-1 leading-tight">
               {it.label}
               {it.sub && <span className={cn("block text-[11px] font-normal", active ? "text-white/85" : "text-stone-400")}>{it.sub}</span>}
             </span>
+            <CountBadge n={it.badge} className={active ? "bg-white text-rose-600" : undefined} />
           </Link>
         );
       })}
@@ -63,8 +76,12 @@ export function Sidebar({
         <Link href="/">
           <KinLogo size={36} />
         </Link>
-        <Link href="/account" className="flex max-w-[55%] items-center gap-2 rounded-full py-1 pr-1 pl-3 active:bg-brand-50" aria-label="โปรไฟล์ของฉัน">
-          <span className="truncate text-right text-sm leading-tight text-brand-800">
+        <Link href="/notifications" className="relative ml-auto flex size-10 items-center justify-center rounded-full text-brand-700 active:bg-brand-50" aria-label={`การแจ้งเตือน${unread ? ` (${unread} ใหม่)` : ""}`}>
+          <Icon name="bell" className="size-[22px]" />
+          <CountBadge n={unread} className="absolute -top-0.5 -right-0.5 h-[18px] min-w-[18px] px-1 text-[10px] ring-2 ring-white" />
+        </Link>
+        <Link href="/account" className="flex max-w-[50%] items-center gap-2 rounded-full py-1 pr-1 pl-2 active:bg-brand-50" aria-label="โปรไฟล์ของฉัน">
+          <span className="hidden truncate text-right text-sm leading-tight text-brand-800 min-[420px]:block">
             {user.name}
             <span className="block text-[11px] text-brand-600">{user.role}</span>
           </span>

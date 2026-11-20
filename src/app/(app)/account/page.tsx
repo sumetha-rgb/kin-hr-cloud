@@ -1,15 +1,18 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import Link from "next/link";
 import { db } from "@/db";
-import { branches, departments, employees, positions, shifts, webauthnCredentials } from "@/db/schema";
+import { branches, departments, employees, positions, shifts, warnings, webauthnCredentials } from "@/db/schema";
 import { Avatar } from "@/components/avatar";
 import { PhotoUploader } from "@/components/photo-uploader";
+import { PushToggle } from "@/components/push-toggle";
 import { SubmitButton } from "@/components/submit-button";
 import { Badge, Card, Field, Flash, Input, InfoRow, MoreLink, Textarea } from "@/components/ui";
 import { isHR, requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/payroll-run";
 import { fmtDate, fmtDateTime } from "@/lib/time";
 import { fullName, ROLE_LABEL, STATUS_LABEL } from "@/lib/util";
+import { WARNING_LEVEL, WARNING_STATUS, warningStatus } from "@/lib/warning";
 import { changePassword, saveMyProfile } from "./actions";
 
 export const metadata = { title: "โปรไฟล์ของฉัน" };
@@ -18,7 +21,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   const u = await requireUser();
   const sp = await searchParams;
   const mgr = alias(employees, "mgr");
-  const [settings, creds, [row]] = await Promise.all([
+  const [settings, creds, [row], myWarnings] = await Promise.all([
     getSettings(),
     db.select().from(webauthnCredentials).where(eq(webauthnCredentials.userId, u.id)),
     u.employeeId
@@ -32,6 +35,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           .leftJoin(mgr, eq(employees.managerId, mgr.id))
           .where(eq(employees.id, u.employeeId))
       : Promise.resolve([]),
+    u.employeeId ? db.select().from(warnings).where(and(eq(warnings.employeeId, u.employeeId), isNull(warnings.voidedAt))).orderBy(desc(warnings.incidentDate)) : Promise.resolve([]),
   ]);
   const e = row?.e;
   const canEdit = settings.selfProfileEdit || isHR(u); // HR ปิดได้ที่ ดูแลระบบ → ตั้งค่าระบบ
@@ -126,6 +130,35 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         </div>
 
         <div className="space-y-5">
+          <Card title="การแจ้งเตือนบนเครื่องนี้">
+            <PushToggle compact />
+          </Card>
+
+          {myWarnings.length > 0 && (
+            <div id="warnings" className="scroll-mt-24">
+              <Card title="ใบเตือนของฉัน" subtitle="หนังสือเตือนมีผล 1 ปีนับจากวันที่เกิดเหตุ">
+                <ul className="space-y-2">
+                  {myWarnings.map((w) => {
+                    const st = warningStatus(w);
+                    return (
+                      <li key={w.id}>
+                        <Link href={`/warnings/${w.id}`} className="flex items-center justify-between gap-2 rounded-2xl border border-brand-100 p-3 text-sm hover:bg-brand-50/60">
+                          <span className="min-w-0">
+                            <span className="block font-medium text-brand-900">{w.category}</span>
+                            <span className="block text-xs text-stone-500">
+                              {fmtDate(w.incidentDate)} · {WARNING_LEVEL[w.level].short}
+                            </span>
+                          </span>
+                          <Badge tone={WARNING_STATUS[st].tone}>{st === "pending" ? "กรุณากดรับทราบ" : WARNING_STATUS[st].label}</Badge>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Card>
+            </div>
+          )}
+
           <Card title="ความปลอดภัย" subtitle={`ชื่อผู้ใช้ ${u.username}`}>
             <form action={changePassword} className="space-y-3">
               <Field label="รหัสผ่านปัจจุบัน">
